@@ -1,0 +1,163 @@
+name: Build desde ZIP
+
+on:
+  push:
+    paths:
+      - '*.zip'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      ORG_GRADLE_PROJECT_CHANNELS_URL: ${{ secrets.CHANNELS_URL }}
+      ORG_GRADLE_PROJECT_EVENTS_URL: ${{ secrets.EVENTS_URL }}
+      ORG_GRADLE_PROJECT_UPDATE_URL: ${{ secrets.UPDATE_URL }}
+      ORG_GRADLE_PROJECT_WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descomprimir proyecto
+        run: |
+          ZIP="$(ls *.zip | head -1)"
+          echo "Usando: $ZIP"
+          unzip -q -o "$ZIP" -d proyecto
+          SETTINGS="$(find proyecto -name settings.gradle.kts | head -1)"
+          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Preparar Android SDK (ya viene en el runner)
+        run: |
+          SDKM="$(find "$ANDROID_HOME/cmdline-tools" -name sdkmanager | head -1)"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" "platforms;android-36" "build-tools;36.0.0" > /dev/null || true
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          build-root-directory: ${{ env.PROJECT_DIR }}
+
+      - name: Compilar debug
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
+
+      - name: Compilar release (prueba R8)
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -o pipefail
+          ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+
+      - name: Guardar APK para las pruebas
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-debug
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Publicar APK en Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          APK="$(find "$PROJECT_DIR" -path '*outputs/apk/debug/*.apk' | head -1)"
+          gh release create "build-${{ github.run_number }}" "$APK" \
+            --title "Build ${{ github.run_number }}" \
+            --notes "APK debug generado automáticamente." \
+            --prerelease
+
+      - name: Resumen de errores
+        if: failure()
+        run: |
+          {
+            echo '## Errores de compilación'
+            echo '```'
+            grep -E '^e: |What went wrong|Execution failed|error:' -A4 "$GITHUB_WORKSPACE/build.log" | head -150
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Abre la app en un emulador de Android y muestra el error si se cierra
+  probar-en-emulador:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 34]
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-debug
+          path: apk
+
+      - name: Habilitar aceleración (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "SIN KVM: el emulador puede tardar mucho"
+
+      - name: Escribir script de prueba
+        run: |
+          cat > prueba.sh <<'SCRIPT'
+          #!/bin/bash
+          adb install -r apk/app-debug.apk
+          adb logcat -c
+          adb shell am start -W -n com.angulismotv/.MainActivity
+          sleep 20
+          adb logcat -d > full.log
+          adb exec-out screencap -p > screen.png
+          adb shell pidof com.angulismotv > pid.txt || true
+          SCRIPT
+
+      - name: Ejecutar la app en el emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          script: bash prueba.sh
+
+      - name: Resumen
+        if: always()
+        run: |
+          {
+            echo "## Prueba en emulador (Android API ${{ matrix.api }})"
+            if [ -s pid.txt ]; then
+              echo "La app sigue abierta después de 20 segundos."
+            else
+              echo "**La app NO está en ejecución: se cerró.**"
+            fi
+            echo '### Error (FATAL EXCEPTION)'
+            echo '```'
+            grep -A30 "FATAL EXCEPTION" full.log | head -80 || true
+            echo '```'
+            echo '### Otras líneas de la app'
+            echo '```'
+            grep -E "angulismotv|AndroidRuntime" full.log | head -40 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar capturas y log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-api-${{ matrix.api }}
+          path: |
+            full.log
+            screen.png
+          if-no-files-found: ignore
