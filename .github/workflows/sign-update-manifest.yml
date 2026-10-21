@@ -1,0 +1,178 @@
+name: Firmar manifiesto de actualización
+
+# Se ejecuta manualmente desde Actions. No modifica el workflow de compilación.
+on:
+  workflow_dispatch:
+    inputs:
+      filename:
+        description: "Nombre exacto del manifiesto en tu hosting (ej.: update.json)"
+        required: true
+        type: string
+        default: "update.json"
+      apk_url:
+        description: "URL HTTPS pública y directa del APK ya publicado (puede ser un asset de GitHub Release)"
+        required: true
+        type: string
+      release_notes:
+        description: "Notas breves de la actualización"
+        required: true
+        type: string
+        default: "Mejoras y correcciones."
+      force_update:
+        description: "¿La actualización será obligatoria?"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sign-manifest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Descargar archivos del repositorio
+        uses: actions/checkout@v4
+
+      - name: Encontrar el proyecto dentro del ZIP y leer versión
+        id: project
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          if [ -z "$ZIP" ]; then
+            echo "::error::No se encontró un ZIP de proyecto en la raíz del repositorio."
+            exit 1
+          fi
+          mkdir -p "$RUNNER_TEMP/proyecto"
+          unzip -q -o "$ZIP" -d "$RUNNER_TEMP/proyecto"
+          PUBLIC_KEY="$(find "$RUNNER_TEMP/proyecto" -type f -path '*/app/src/main/res/raw/update_public_key.pem' -print -quit)"
+          GRADLE_FILE="$(find "$RUNNER_TEMP/proyecto" -type f -path '*/app/build.gradle.kts' -print -quit)"
+          if [ -z "$PUBLIC_KEY" ]; then
+            echo "::error::El ZIP no contiene la clave pública update_public_key.pem. Subí el ZIP de la Etapa 31 que incorpora la verificación de firma."
+            exit 1
+          fi
+          if [ -z "$GRADLE_FILE" ]; then
+            echo "::error::No se encontró app/build.gradle.kts dentro del ZIP."
+            exit 1
+          fi
+          python3 - "$GRADLE_FILE" "$GITHUB_OUTPUT" "$PUBLIC_KEY" <<'PY'
+          import re, sys
+          from pathlib import Path
+          gradle_file, output_file, public_key = sys.argv[1:]
+          text = Path(gradle_file).read_text(encoding="utf-8")
+          code = re.search(r"^\s*versionCode\s*=\s*(\d+)\s*$", text, re.M)
+          name = re.search(r'^\s*versionName\s*=\s*"([^"\n]+)"\s*$', text, re.M)
+          if not code or not name:
+              raise SystemExit("No pude leer versionCode y versionName de app/build.gradle.kts; no se generó el manifiesto.")
+          with open(output_file, "a", encoding="utf-8") as out:
+              out.write(f"version_code={code.group(1)}\n")
+              out.write(f"version_name={name.group(1)}\n")
+              out.write(f"public_key={public_key}\n")
+          print(f"Versión leída del proyecto: versionCode={code.group(1)}, versionName={name.group(1)}")
+          PY
+
+      - name: Descargar APK publicado y calcular SHA-256
+        id: apk
+        env:
+          APK_URL: ${{ inputs.apk_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$APK_URL" != https://* ]]; then
+            echo "::error::La URL del APK debe empezar con https://"
+            exit 1
+          fi
+          curl --fail --location --retry 2 --connect-timeout 20 --max-time 240 \
+            --max-filesize 200000000 --proto '=https' --proto-redir '=https' \
+            --output "$RUNNER_TEMP/angulismotv-update.apk" "$APK_URL"
+          SHA256="$(sha256sum "$RUNNER_TEMP/angulismotv-update.apk" | awk '{print $1}')"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+          echo "Se calculó SHA-256 del APK accesible por HTTPS."
+
+      - name: Crear manifiesto
+        env:
+          OUTPUT_FILENAME: ${{ inputs.filename }}
+          VERSION_CODE: ${{ steps.project.outputs.version_code }}
+          VERSION_NAME: ${{ steps.project.outputs.version_name }}
+          APK_URL: ${{ inputs.apk_url }}
+          APK_SHA256: ${{ steps.apk.outputs.sha256 }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          FORCE_UPDATE: ${{ inputs.force_update }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          from urllib.parse import urlparse
+
+          filename = os.environ["OUTPUT_FILENAME"].strip()
+          if not re.fullmatch(r"[A-Za-z0-9._-]+", filename) or filename in {".", ".."}:
+              raise SystemExit("El nombre debe ser un archivo simple, sin carpetas ni caracteres especiales.")
+          version_code = int(os.environ["VERSION_CODE"])
+          version_name = os.environ["VERSION_NAME"].strip()
+          apk_url = os.environ["APK_URL"].strip()
+          sha256 = os.environ["APK_SHA256"].strip().lower()
+          parsed = urlparse(apk_url)
+          if not version_name or len(version_name) > 64:
+              raise SystemExit("versionName es obligatorio y admite hasta 64 caracteres.")
+          if parsed.scheme != "https" or not parsed.netloc:
+              raise SystemExit("apkUrl debe ser una URL HTTPS pública.")
+          if not re.fullmatch(r"[0-9a-f]{64}", sha256):
+              raise SystemExit("No se pudo calcular un SHA-256 válido para el APK.")
+
+          manifest = {
+              "versionCode": version_code,
+              "versionName": version_name,
+              "apkUrl": apk_url,
+              "sha256": sha256,
+              "releaseNotes": os.environ["RELEASE_NOTES"][:4000],
+              "forceUpdate": os.environ["FORCE_UPDATE"].lower() == "true",
+          }
+          out_dir = Path("signed-update")
+          out_dir.mkdir(exist_ok=True)
+          (out_dir / filename).write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          print("Manifiesto preparado con la versión del proyecto y el SHA-256 del APK descargado.")
+          PY
+
+      - name: Firmar con RSA-SHA256 y comprobar la clave pública
+        env:
+          UPDATE_PRIVATE_KEY_PEM: ${{ secrets.UPDATE_PRIVATE_KEY_PEM }}
+          PUBLIC_KEY_PATH: ${{ steps.project.outputs.public_key }}
+          OUTPUT_FILENAME: ${{ inputs.filename }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "${UPDATE_PRIVATE_KEY_PEM:-}" ]; then
+            echo "::error::No se encontró el secreto UPDATE_PRIVATE_KEY_PEM. Revisá Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          umask 077
+          key_file="$RUNNER_TEMP/update-private.pem"
+          derived_key="$RUNNER_TEMP/derived-public.der"
+          trusted_key="$RUNNER_TEMP/trusted-public.der"
+          signature_bin="$RUNNER_TEMP/manifest-signature.bin"
+          trap 'rm -f "$key_file" "$derived_key" "$trusted_key" "$signature_bin"' EXIT
+          printf '%s\n' "$UPDATE_PRIVATE_KEY_PEM" > "$key_file"
+          unset UPDATE_PRIVATE_KEY_PEM
+          openssl pkey -in "$key_file" -noout >/dev/null
+          openssl pkey -in "$key_file" -pubout -outform DER -out "$derived_key"
+          openssl pkey -pubin -in "$PUBLIC_KEY_PATH" -outform DER -out "$trusted_key"
+          if ! cmp -s "$derived_key" "$trusted_key"; then
+            echo "::error::La clave privada del secreto no corresponde a la clave pública integrada en el ZIP. No se generó ninguna firma."
+            exit 1
+          fi
+          openssl dgst -sha256 -sign "$key_file" -out "$signature_bin" "signed-update/$OUTPUT_FILENAME"
+          base64 -w 0 "$signature_bin" > "signed-update/$OUTPUT_FILENAME.sig"
+          printf '\n' >> "signed-update/$OUTPUT_FILENAME.sig"
+          echo "Firma creada y clave comprobada. La clave privada no forma parte del artefacto."
+
+      - name: Subir manifiesto firmado
+        uses: actions/upload-artifact@v4
+        with:
+          name: manifiesto-firmado
+          path: signed-update/
+          if-no-files-found: error
+          retention-days: 7
