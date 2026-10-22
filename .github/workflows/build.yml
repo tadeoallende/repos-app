@@ -186,3 +186,89 @@ jobs:
             full.log
             screen.png
           if-no-files-found: ignore
+probar-en-emulador-tv:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-debug
+          path: apk
+
+      - name: Habilitar aceleración (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "SIN KVM: el emulador puede tardar mucho"
+
+      - name: Preparar prueba Android TV
+        run: |
+          cat > prueba-tv.sh <<'SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          adb install -r apk/app-debug.apk
+          adb shell pm list features > features-tv.txt
+          if ! grep -q 'android.software.leanback' features-tv.txt; then
+            echo "::error::La imagen iniciada no expone la función Android TV (leanback)."
+            exit 1
+          fi
+          adb logcat -c
+          adb shell am start -W -n com.angulismotv/.MainActivity
+          sleep 25
+          adb logcat -d > full-tv.log
+          adb exec-out screencap -p > screen-tv.png
+          adb shell pidof com.angulismotv > pid-tv.txt || true
+          if [ ! -s pid-tv.txt ]; then
+            echo "::error::AngulismoTV no sigue abierta en el emulador Android TV."
+            exit 1
+          fi
+          if grep -q "FATAL EXCEPTION" full-tv.log; then
+            echo "::error::Se detectó una excepción fatal en Android TV."
+            grep -A30 "FATAL EXCEPTION" full-tv.log | head -80 || true
+            exit 1
+          fi
+          SCRIPT
+
+      - name: Ejecutar en dispositivo virtual Android TV
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash prueba-tv.sh
+
+      - name: Resumen Android TV
+        if: always()
+        run: |
+          {
+            echo "Prueba de arranque Android TV (API 34)"
+            if [ -s pid-tv.txt ]; then
+              echo "La app sigue abierta después de 25 segundos."
+            else
+              echo "La app NO quedó en ejecución."
+            fi
+            echo "Características del dispositivo"
+            cat features-tv.txt 2>/dev/null | grep -E 'leanback|television|touchscreen' || true
+            echo "Excepciones fatales"
+            grep -A30 "FATAL EXCEPTION" full-tv.log 2>/dev/null | head -80 || true
+            echo "Registros de AngulismoTV"
+            grep -E "angulismotv|AndroidRuntime" full-tv.log 2>/dev/null | head -50 || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar captura y registros Android TV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-android-tv
+          path: |
+            screen-tv.png
+            full-tv.log
+            features-tv.txt
+            pid-tv.txt
+          if-no-files-found: ignore
