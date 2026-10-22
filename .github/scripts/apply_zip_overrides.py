@@ -1164,6 +1164,45 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = ET.tostring(root, encoding="unicode", xml_declaration=True)
 
 
+    # Ajustes transversales de controles del reproductor (móvil y TV).
+    if name.startswith("app/src/main/res/layout/") and name.endswith(".xml"):
+        import xml.etree.ElementTree as ET
+        android_ns = "{http://schemas.android.com/apk/res/android}"
+        ET.register_namespace("android", android_ns[1:-1])
+        ET.register_namespace("app", "http://schemas.android.com/apk/res-auto")
+        try:
+            root = ET.fromstring(text)
+        except ET.ParseError:
+            root = None
+        if root is not None:
+            def norm_attr(node, key):
+                return (node.get(android_ns + key, "") or "").lower().replace("_", " ").replace("-", " ")
+            def favorite_control(node):
+                identity = (node.get(android_ns + "id", "") + " " +
+                            norm_attr(node, "contentDescription") + " " +
+                            norm_attr(node, "text") + " " +
+                            norm_attr(node, "tooltipText")).lower()
+                return any(word in identity for word in ("favorite", "favourite", "favorito", "favoritos"))
+            # Quitar el control, no solo hacerlo invisible: así no queda su ancho ni su margen.
+            for parent in list(root.iter()):
+                for child in list(parent):
+                    if favorite_control(child) and child.tag.split("}")[-1] in (
+                        "Button", "ImageButton", "ImageView", "TextView", "MaterialButton"
+                    ):
+                        parent.remove(child)
+            # El control de salida debe comunicar volver/salir, no cerrar algo ambiguo.
+            for node in root.iter():
+                identity = (node.get(android_ns + "id", "") + " " +
+                            norm_attr(node, "contentDescription") + " " +
+                            norm_attr(node, "tooltipText")).lower()
+                if any(word in identity for word in ("close", "cerrar", "exit", "salir")):
+                    if node.tag.split("}")[-1] in ("ImageButton", "ImageView"):
+                        src = node.get(android_ns + "src", "")
+                        if "close" in src or "cross" in src or "cerrar" in src:
+                            node.set(android_ns + "src", "@drawable/ic_arrow_back")
+                        node.set(android_ns + "contentDescription", "Salir del reproductor")
+            text = ET.tostring(root, encoding="unicode", xml_declaration=True)
+
     text = apply_ui_redesign(name, text)
     return text.encode("utf-8")
 
