@@ -30,9 +30,9 @@ android {
         buildConfigField("String", "REMOTE_SOURCES_CONFIG_URL", "\"https://raw.githubusercontent.com/tadeoallende/repos-app/main/fuentes.json\"")
         buildConfigField("String", "CHANNELS_URL", "\"disabled\"")
         buildConfigField("String", "EVENTS_URL", "\"disabled\"")
-        buildConfigField("String", "CUSTOM_CHANNELS_URL", "\"disabled\"")
-        buildConfigField("String", "UPDATE_URL", "\"PROPUPDATE\"")
-        buildConfigField("String", "WEB_BASE_URL", "\"PROPWEB\"")
+        buildConfigField("String", "CUSTOM_CHANNELS_URL", "\"https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json\"")
+        buildConfigField("String", "UPDATE_URL", "\"${prop("UPDATE_URL")}\"")
+        buildConfigField("String", "WEB_BASE_URL", "\"${prop("WEB_BASE_URL", "https://angulismotv.pages.dev")}\"")
     }
 
     signingConfigs {
