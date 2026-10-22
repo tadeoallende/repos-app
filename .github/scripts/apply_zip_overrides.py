@@ -1037,6 +1037,20 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "                val result = if (allChannels.isNotEmpty()) {\n                    LoadResult(allChannels, partialFailure = true, sourceName = \"Caché local\")\n                } else LoadResult(emptyList(), failed = true)\n",
             "conservar catálogo ante excepción")
 
+    elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
+        # El HUD aparece con un fundido y un desplazamiento corto, sin bloquear el mando.
+        import re
+        pattern = re.compile(r"(?m)^(\\s*)([A-Za-z_][A-Za-z0-9_.]*)\\.visibility = View.VISIBLE$")
+        def animate_overlay(match):
+            indent, target = match.group(1), match.group(2)
+            if not any(token in target.lower() for token in ("overlay", "control", "hud")):
+                return match.group(0)
+            return (match.group(0) + "\\n" +
+                    indent + target + ".alpha = 0f\\n" +
+                    indent + target + ".translationY = 8f\\n" +
+                    indent + target + ".animate().alpha(1f).translationY(0f).setDuration(180L).start()")
+        text = pattern.sub(animate_overlay, text)
+
     elif name == "app/src/main/java/com/angulismotv/models/Channel.kt":
         text = replace_once(text, "import kotlinx.parcelize.Parcelize\n", "import kotlinx.parcelize.Parcelize\nimport com.google.gson.annotations.SerializedName\n", "importar anotaciones Gson")
         for field in ["name", "logo", "streamUrl", "streamType", "options", "show", "category", "country"]:
@@ -1165,7 +1179,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
 
     # Ajustes transversales de controles del reproductor (móvil y TV).
-    if name.startswith("app/src/main/res/layout/") and name.endswith(".xml"):
+    if name.startswith("app/src/main/res/layout/") and name.endswith(".xml") and any(token in name.lower() for token in ("player", "fullscreen", "transmision")):
         import xml.etree.ElementTree as ET
         android_ns = "{http://schemas.android.com/apk/res/android}"
         ET.register_namespace("android", android_ns[1:-1])
