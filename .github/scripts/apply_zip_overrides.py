@@ -1621,11 +1621,11 @@ def _diagnose_archive_ui(name: str, raw: bytes) -> None:
     lines = source.splitlines()
     print(f"\\n===== UI-DIAG {name} ({len(lines)} lines) =====")
     if name.endswith("UnifiedPlayerActivity.kt"):
-        pattern = re.compile(r"zapping|zapTo|showControls|hideControls|loadChannelInfo|channelNameText|channel_name|controlsOverlay\\.visibility|bottomControls\\.visibility|private fun .*zap|isZapping =|currentChannelIndex =|updateControlsVisibility|clearZapping|visibility = View\\.VISIBLE", re.I)
+        pattern = re.compile(r"zappingChannelName|zappingOverlay|bindZappingViews|hideZappingRunnable|zapTo|loadChannelInfo|private fun (showControls|hideControls|updateControlsVisibility)|zapping_channel_name", re.I)
     elif name.endswith("ChannelsAdapter.kt"):
         pattern = re.compile(r"setTextColor|textColor|isSelected|previewChannelKey|setBackground|focus|selected|itemView", re.I)
     elif name.endswith("SideChannelsAdapter.kt") or name.endswith("PlayerChannelPanelController.kt"):
-        pattern = re.compile(r"setTextColor|channelName|channel_name|isSelected|selected|accent|color|bind\\(|itemView|background|visibility", re.I)
+        pattern = re.compile(r"setTextColor|channelName|channel_name|isSelected|selected|accent|currentChannel|channel_name", re.I)
     elif name.endswith(("activity_unified_player.xml", "item_channel.xml", "item_channel_side.xml")) or any(name.endswith(item) for item in ("side_menu_bg.xml", "side_menu_item_bg.xml", "side_channel_item_bg.xml", "side_channel_item_selected.xml", "bg_tv_player_focus.xml")):
         pattern = re.compile(r"zapping|channel_name|channel_category|controls_overlay|bottom_controls|background|textColor|tint|focusable|selected|selected|visibility|layout_width|layout_height", re.I)
     elif name.endswith("MainActivity.kt"):
