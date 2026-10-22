@@ -10,7 +10,11 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -76,20 +80,9 @@ jobs:
           set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
 
-      - name: Guardar ZIP actualizado en la rama
-        if: success() && github.event_name != 'pull_request'
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- "$SOURCE_ZIP"
-          if git diff --cached --quiet; then
-            echo "El ZIP ya estaba actualizado."
-            exit 0
-          fi
-          git commit -m "build: persist updated AngulismoTV ZIP [skip ci]"
-          BRANCH="$(git branch --show-current)"
-          git push origin "HEAD:$BRANCH"
+      # El ZIP base se mantiene inmutable en Git. Los overlays se aplican solo
+      # dentro del runner para que builds simultáneos no compitan al hacer push
+      # del mismo archivo binario a la rama.
 
       - name: Guardar APK para las pruebas
         uses: actions/upload-artifact@v4
