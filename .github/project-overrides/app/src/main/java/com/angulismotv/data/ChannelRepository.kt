@@ -140,9 +140,25 @@ object ChannelRepository {
             val directory = context.applicationContext.filesDir
             val target = File(directory, CACHE_FILE)
             val temporary = File(directory, "$CACHE_FILE.tmp")
+            val backup = File(directory, "$CACHE_FILE.bak")
             temporary.writeText(gson.toJson(channels, cacheType), Charsets.UTF_8)
-            if (target.exists() && !target.delete()) throw IOException("No se pudo reemplazar la caché anterior")
-            if (!temporary.renameTo(target)) throw IOException("No se pudo guardar la caché de canales")
+
+            // Keep the previous valid cache until the replacement file is ready to become the target.
+            if (target.exists()) {
+                if (backup.exists() && !backup.delete()) {
+                    throw IOException("No se pudo limpiar la copia anterior de la caché")
+                }
+                if (!target.renameTo(backup)) throw IOException("No se pudo respaldar la caché anterior")
+            }
+
+            if (!temporary.renameTo(target)) {
+                // Restore the previous catalogue if the final rename fails.
+                if (!target.exists() && backup.exists()) backup.renameTo(target)
+                throw IOException("No se pudo guardar la caché de canales")
+            }
+            if (backup.exists() && !backup.delete()) {
+                Log.w(TAG, "Se guardó la caché nueva, pero no se pudo eliminar la copia de respaldo")
+            }
         }.onFailure { Log.w(TAG, "No se pudo guardar la caché local (" + it.javaClass.simpleName + ")") }
     }
 
