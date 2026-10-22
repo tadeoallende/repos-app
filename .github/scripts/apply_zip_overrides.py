@@ -175,6 +175,35 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             } || searchableText.replace(" ", "").contains(compactQuery)
 ''', "buscar por prefijos y fragmentos")
 
+    elif name == "app/src/main/java/com/angulismotv/MainActivity.kt":
+        text = replace_once(text,
+            "    private fun loadAllChannels() {\n        val generation = ++channelLoadGeneration\n        channelLoadJob?.cancel()\n",
+            "    private fun loadAllChannels() {\n        if (channelLoadJob?.isActive == true) {\n            Log.d(TAG, \"Se omite una recarga duplicada: ya hay una carga en curso\")\n            return\n        }\n        val generation = ++channelLoadGeneration\n",
+            "evitar recargas simultáneas")
+        text = replace_once(text,
+            "            try {\n                val result = ChannelRepository.loadAll()\n",
+            "            try {\n                if (lastLoadResult == null) {\n                    val cached = ChannelRepository.loadCached(this@MainActivity)\n                    if (cached != null && generation == channelLoadGeneration && !isFinishing && !isDestroyed) {\n                        allChannels = cached.channels\n                        lastLoadResult = cached\n                        fragmentChannels.showResult(cached)\n                        Log.d(TAG, \"Catálogo local mostrado de inmediato: \" + cached.channels.size + \" canales\")\n                    }\n                }\n                val fresh = ChannelRepository.loadAll(this@MainActivity)\n",
+            "mostrar caché al inicio")
+        text = replace_once(text,
+            "                if (generation != channelLoadGeneration || isFinishing || isDestroyed) return@launch\n                allChannels = result.channels\n",
+            "                if (generation != channelLoadGeneration || isFinishing || isDestroyed) return@launch\n                val result = if (fresh.channels.isEmpty() && allChannels.isNotEmpty() &&\n                    (fresh.failed || fresh.partialFailure)) {\n                    Log.w(TAG, \"Falló la actualización; se conserva el último catálogo válido\")\n                    LoadResult(allChannels, partialFailure = true, sourceName = \"Caché local\")\n                } else fresh\n                allChannels = result.channels\n",
+            "conservar catálogo ante fallo de red")
+        text = replace_once(text,
+            "                val result = LoadResult(emptyList(), failed = true)\n                allChannels = emptyList()\n",
+            "                val result = if (allChannels.isNotEmpty()) {\n                    LoadResult(allChannels, partialFailure = true, sourceName = \"Caché local\")\n                } else LoadResult(emptyList(), failed = true)\n",
+            "conservar catálogo ante excepción")
+
+    elif name == "app/src/main/java/com/angulismotv/models/Channel.kt":
+        text = replace_once(text, "import kotlinx.parcelize.Parcelize\n", "import kotlinx.parcelize.Parcelize\nimport com.google.gson.annotations.SerializedName\n", "importar anotaciones Gson")
+        for field in ["name", "logo", "streamUrl", "streamType", "options", "show", "category", "country"]:
+            text = replace_once(text, "    val " + field + ":", "    @field:SerializedName(\"" + field + "\") val " + field + ":", "serializar campo Channel " + field)
+        # StreamOption also uses the same stable JSON names, but those fields appear a second time.
+        start = text.index("data class StreamOption(")
+        head, tail = text[:start], text[start:]
+        for field in ["name", "iframe", "streamType"]:
+            tail = replace_once(tail, "    val " + field + ":", "    @field:SerializedName(\"" + field + "\") val " + field + ":", "serializar StreamOption " + field)
+        text = head + tail
+
     elif name == "app/src/main/res/layout/fragment_channels.xml":
         text = replace_once(text, '        android:keepScreenOn="true"\n        android:visibility="gone">\n', '        android:keepScreenOn="true"\n        android:visibility="visible">\n', "mantener mini reproductor visible")
         marker = '''        <ProgressBar
