@@ -217,8 +217,8 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
     elif name == "app/src/main/java/com/angulismotv/ui/PlayerChannelPanelController.kt":
         for old, new, label in [
-            ("import androidx.core.content.ContextCompat\\n", "import androidx.core.content.ContextCompat\\nimport androidx.lifecycle.lifecycleScope\\nimport kotlinx.coroutines.Dispatchers\\nimport kotlinx.coroutines.Job\\nimport kotlinx.coroutines.delay\\nimport kotlinx.coroutines.launch\\nimport kotlinx.coroutines.withContext\\n", "imports coroutines panel"),
-            ("    private var channelNumbersByIdentity: Map<String, Int> = emptyMap()\\n", """    private var channelNumbersByIdentity: Map<String, Int> = emptyMap()
+            ("import androidx.core.content.ContextCompat\n", "import androidx.core.content.ContextCompat\nimport androidx.lifecycle.lifecycleScope\nimport kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.Job\nimport kotlinx.coroutines.delay\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.withContext\n", "imports coroutines panel"),
+            ("    private var channelNumbersByIdentity: Map<String, Int> = emptyMap()\n", """    private var channelNumbersByIdentity: Map<String, Int> = emptyMap()
     private var catalogGeneration = 0
     private var channelListJob: Job? = null
     private var searchJob: Job? = null
@@ -428,13 +428,13 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             text = replace_once(text, method_anchor, search_method + method_anchor, "agregar búsqueda asíncrona")
 
         text = replace_once(text,
-            "        if (isSearchActive) deactivateSearchMode()\\n        currentCategory = ALL_CHANNELS_CATEGORY",
-            "        if (isSearchActive) deactivateSearchMode()\\n        currentCategory = ALL_CHANNELS_CATEGORY",
+            "        if (isSearchActive) deactivateSearchMode()\n        currentCategory = ALL_CHANNELS_CATEGORY",
+            "        if (isSearchActive) deactivateSearchMode()\n        currentCategory = ALL_CHANNELS_CATEGORY",
             "normalizar selección de todos los canales")
         # Remove a duplicated guard that had no observable purpose in showAllChannels().
         text = text.replace(
-            "        if (isSearchActive) deactivateSearchMode()\\n        if (isSearchActive) deactivateSearchMode()\\n",
-            "        if (isSearchActive) deactivateSearchMode()\\n"
+            "        if (isSearchActive) deactivateSearchMode()\n        if (isSearchActive) deactivateSearchMode()\n",
+            "        if (isSearchActive) deactivateSearchMode()\n"
         )
     elif name == "app/src/main/java/com/angulismotv/ui/ChannelCategoryBarController.kt":
         text = replace_once(text, "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n", "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n    private var availableCountryKeys: List<String> = emptyList()\n", "guardar países preparados")
