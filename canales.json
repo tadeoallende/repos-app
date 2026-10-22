@@ -1,6 +1,5 @@
 {
   "channels": [
-    // ==================== NOTICIAS ====================
     {
       "name": "América TV",
       "logo": "https://bestleague.pl/img/america.webp",
@@ -515,8 +514,6 @@
         }
       ]
     },
-
-    // ==================== INTERNACIONALES ====================
     {
       "name": "TeleSur",
       "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/TeleSUR-Logo.svg/1280px-TeleSUR-Logo.svg.png",
@@ -693,8 +690,6 @@
         }
       ]
     },
-
-    // ==================== DEPORTES ====================
     {
       "name": "DSports",
       "logo": "https://bestleague.pl/img/dsports.webp",
@@ -1092,8 +1087,6 @@
         }
       ]
     },
-
-    // ==================== PELICULAS ====================
     {
       "name": "Cinecanal",
       "logo": "https://angulismotv.pages.dev/assets/logos/app/CINECANAL.png",
@@ -1966,8 +1959,6 @@
         }
       ]
     },
-
-    // ==================== ESTILO DE VIDA ====================
     {
       "name": "El Gourmet",
       "logo": "https://angulismotv.pages.dev/assets/logos/app/EL_GOURMET.png",
@@ -2058,8 +2049,6 @@
         }
       ]
     },
-
-    // ==================== MUSICALES ====================
     {
       "name": "Ciudad Magazine",
       "logo": "https://bestleague.pl/img/ciudad.webp",
@@ -2260,8 +2249,6 @@
         }
       ]
     },
-
-    // ==================== INFANTILES ====================
     {
       "name": "Disney Channel",
       "logo": "https://bestleague.pl/img/disney.webp",
@@ -2478,8 +2465,6 @@
         }
       ]
     },
-
-    // ==================== EDUCATIVOS ====================
     {
       "name": "TECtv",
       "logo": "https://angulismotv.pages.dev/assets/logos/app/TEC.png",
@@ -2532,8 +2517,6 @@
         }
       ]
     },
-
-    // ==================== DOCUMENTALES ====================
     {
       "name": "History",
       "logo": "https://bestleague.pl/img/history.webp",
@@ -2734,8 +2717,6 @@
         }
       ]
     },
-
-    // ==================== EVENTOS ====================
     {
       "name": "Evento 1",
       "logo": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhu3DnKA26pZam_crvfw71Ssq3Qxd5ERHxe7dU_abYfJN02bWYEXhSRGG3SS3ps8XVDSBsXF3yVeAkwVcwQWLJ_sxX8uDKzm3oaVXbgpeLqFP58fZ0p6we9XjGzjTyiZb5nJe9kr6qTfv94gsOLP4Vy8dvXCgCB8tQMbi1klPUXt0OYX7brRTX7T0_FvvY/s900/ChocoPop%20TV%20Eventos.png",
