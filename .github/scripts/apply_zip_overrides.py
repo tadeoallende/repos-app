@@ -18,6 +18,118 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
     raise RuntimeError(f"No se pudo aplicar {label}: el código base no coincide.")
 
 
+
+def apply_nebula_visuals(name: str, text: str) -> str:
+    """Apply the midnight/nebula palette and polish channel rows without changing their data."""
+    if not name.endswith(".xml") or "/res/" not in name:
+        return text
+
+    import xml.etree.ElementTree as ET
+    android_ns = "{http://schemas.android.com/apk/res/android}"
+    ET.register_namespace("android", android_ns[1:-1])
+    ET.register_namespace("app", "http://schemas.android.com/apk/res-auto")
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError:
+        return text
+
+    if "/res/values" in name and Path(name).name == "colors.xml":
+        for node in root.iter():
+            tag = node.tag.split("}")[-1]
+            if tag == "color":
+                resource_name = (node.get("name") or "").lower().replace("-", "_")
+            elif tag == "item" and node.get("type") == "color":
+                resource_name = (node.get("name") or "").lower().replace("-", "_")
+            else:
+                continue
+
+            value = None
+            if any(token in resource_name for token in ("text_primary", "primary_text", "text_main")):
+                value = "#F0F4FF"
+            elif any(token in resource_name for token in ("text_secondary", "secondary_text", "text_subtitle")):
+                value = "#B4BED7"
+            elif any(token in resource_name for token in ("text_hint", "hint_text", "text_disabled")):
+                value = "#8290AE"
+            elif any(token in resource_name for token in ("accent", "bottom_nav_color", "brand_cyan", "color_accent")):
+                value = "#63E6E0"
+            elif any(token in resource_name for token in ("divider", "outline", "stroke", "border")):
+                value = "#26324A"
+            elif any(token in resource_name for token in ("nebula", "cosmic", "space_purple", "indigo_accent")):
+                value = "#8D7CFF"
+            elif resource_name in ("colorprimarydark", "color_primary_dark", "background", "app_background", "window_background", "screen_background", "bg_primary"):
+                value = "#080D1B"
+            elif any(token in resource_name for token in ("surface", "card_background", "panel_background", "background_surface")):
+                value = "#11182A"
+
+            if value:
+                node.text = value
+        return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    if "/res/layout/" not in name:
+        return text
+
+    layout_name = Path(name).stem.lower()
+    # The TV panel is handled separately; this transform only targets reusable channel rows.
+    excluded = ("fragment_", "activity_", "dialog_", "bottom_sheet", "player", "panel", "header")
+    has_channel_hint = "channel" in layout_name or "canal" in layout_name
+    if not has_channel_hint or any(token in layout_name for token in excluded):
+        return text
+
+    view_nodes = list(root.iter())
+    image_nodes = [node for node in view_nodes if node.tag.split("}")[-1] in
+                   ("ImageView", "AppCompatImageView", "ShapeableImageView")]
+    text_nodes = [node for node in view_nodes if node.tag.split("}")[-1] in
+                  ("TextView", "AppCompatTextView", "MaterialTextView")]
+    if not image_nodes or not text_nodes or root.tag.split("}")[-1] == "merge":
+        return text
+
+    # Rows are still ordinary focusable adapter items, keeping the existing D-pad handling intact.
+    root.set(android_ns + "background", "@drawable/bg_channel_row_nebula")
+    root.set(android_ns + "focusable", "true")
+    root.set(android_ns + "clickable", "true")
+    root.set(android_ns + "paddingStart", "10dp")
+    root.set(android_ns + "paddingEnd", "10dp")
+    root.set(android_ns + "paddingTop", "5dp")
+    root.set(android_ns + "paddingBottom", "5dp")
+    root.set(android_ns + "minHeight", "58dp")
+    root.set(android_ns + "layout_marginBottom", "4dp")
+    if root.get(android_ns + "layout_height") in (None, "match_parent"):
+        root.set(android_ns + "layout_height", "wrap_content")
+
+    def view_id(node):
+        return (node.get(android_ns + "id", "").split("/")[-1]).lower().replace("_", "")
+
+    logo = next((node for node in image_nodes
+                 if any(token in view_id(node) for token in ("logo", "channellogo", "channelimage"))), None)
+    if logo is None:
+        logo = next((node for node in image_nodes
+                     if not any(token in view_id(node) for token in ("play", "arrow", "search", "favorite", "fav"))),
+                    image_nodes[0])
+    logo.set(android_ns + "layout_width", "40dp")
+    logo.set(android_ns + "layout_height", "40dp")
+    logo.set(android_ns + "scaleType", "fitCenter")
+    logo.set(android_ns + "adjustViewBounds", "true")
+    logo.set(android_ns + "padding", "4dp")
+    logo.set(android_ns + "background", "@drawable/bg_channel_logo_container")
+
+    primary_text = next((node for node in text_nodes
+                         if any(token in view_id(node) for token in ("name", "title", "channelname", "canal"))),
+                        text_nodes[0])
+    for node in text_nodes:
+        if node is primary_text:
+            node.set(android_ns + "textColor", "#F0F4FF")
+            node.set(android_ns + "textSize", "15sp")
+            node.set(android_ns + "fontFamily", "sans-serif-medium")
+            node.set(android_ns + "maxLines", "1")
+            node.set(android_ns + "ellipsize", "end")
+        else:
+            node.set(android_ns + "textColor", "#B4BED7")
+            node.set(android_ns + "maxLines", "1")
+            node.set(android_ns + "ellipsize", "end")
+
+    return ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+
 def apply_source_optimizations(name: str, raw: bytes) -> bytes:
     try:
         text = raw.decode("utf-8")
@@ -1135,6 +1247,12 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         player_column.set(android_ns + "layout_weight", "2.15")
         panel.set(android_ns + "layout_weight", "1")
         panel.set(android_ns + "paddingTop", "4dp")
+        # La lista se integra al fondo: sin marco exterior ni sombra de tarjeta.
+        panel.set(android_ns + "background", "@android:color/transparent")
+        panel.set(android_ns + "elevation", "0dp")
+        panel.attrib.pop(android_ns + "backgroundTint", None)
+        channels_list.set(android_ns + "background", "@android:color/transparent")
+        channels_list.attrib.pop(android_ns + "backgroundTint", None)
         header.set(android_ns + "visibility", "gone")
         categories.set(android_ns + "visibility", "gone")
 
@@ -1215,6 +1333,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
                         node.set(android_ns + "contentDescription", "Salir del reproductor")
             text = ET.tostring(root, encoding="unicode", xml_declaration=True)
 
+    text = apply_nebula_visuals(name, text)
     text = apply_ui_redesign(name, text)
     return text.encode("utf-8")
 
