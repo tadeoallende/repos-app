@@ -652,7 +652,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         if "private val differ = AsyncListDiffer(this, object : DiffUtil.ItemCallback<Channel>() {" in text:
             text = text.replace(
                 "        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {\n            itemView.isSelected = isSelected",
-                "        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {\n            number.text = if (channelNumber > 0) channelNumber.toString() else \\"—\\"\\n            itemView.isSelected = isSelected",
+                "        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {\n            number.text = if (channelNumber > 0) channelNumber.toString() else \"—\"\n            itemView.isSelected = isSelected",
                 1
             )
             return text.encode("utf-8")
