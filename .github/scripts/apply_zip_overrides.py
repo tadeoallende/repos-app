@@ -147,6 +147,43 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = replace_once(text, old_categories, new_categories, "metadatos de categorías asíncronos")
         text = replace_once(text, "    private fun applyResult(result: LoadResult) {\n", "    private fun applyResult(result: LoadResult) {\n        filterGeneration++\n        filterJob?.cancel()\n        filterJob = null\n        categoryMetadataJob?.cancel()\n        categoryMetadataJob = null\n", "cancelar filtrado obsoleto")
         text = replace_once(text, "    private fun disposeViewControllers() {\n", "    private fun disposeViewControllers() {\n        filterGeneration++\n        filterJob?.cancel()\n        filterJob = null\n        categoryMetadataJob?.cancel()\n        categoryMetadataJob = null\n", "liberar trabajos del fragmento")
+        text = replace_once(text,
+            """            val metadata = withContext(Dispatchers.Default) {
+                ChannelFilterEngine.availableCategories(channels) to ChannelFilterEngine.availableCountries(channels)
+            }""",
+            """            val metadata = withContext(Dispatchers.Default) {
+                Triple(
+                    ChannelFilterEngine.availableCategories(channels),
+                    ChannelFilterEngine.availableCountries(channels),
+                    ChannelCatalog.channelNumbersByIdentity(channels)
+                )
+            }""", "preparar índice del catálogo fuera del hilo visual")
+        text = replace_once(text,
+            "            val availableCountries = metadata.second.toSet()",
+            "            channelNumbersByIdentity = metadata.third\n            val availableCountries = metadata.second.toSet()",
+            "asignar índice preparado")
+        text = replace_once(text,
+            "            categoryBarController?.render(metadata.first, metadata.second)\n",
+            "            categoryBarController?.render(metadata.first, metadata.second)\n            applyFiltersAndUpdate()\n",
+            "filtrar al terminar la preparación")
+        text = replace_once(text,
+            "        originalChannels = result.channels\n        channelNumbersByIdentity = ChannelCatalog.channelNumbersByIdentity(originalChannels)\n        currentCategory = \"todos\"\n",
+            "        originalChannels = result.channels\n        channelNumbersByIdentity = emptyMap()\n        currentCategory = \"todos\"\n",
+            "evitar construir el índice en el hilo visual")
+        text = replace_once(text,
+            """        } else {
+            generateCategoriesFromChannels(originalChannels)
+            applyFiltersAndUpdate()
+        }
+    }
+
+    private fun showState""",
+            """        } else {
+            generateCategoriesFromChannels(originalChannels)
+        }
+    }
+
+    private fun showState""", "esperar la preparación asíncrona del catálogo")
 
     elif name == "app/src/main/java/com/angulismotv/adapters/ChannelsAdapter.kt":
         text = replace_once(text, "if (isTV && itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "if (itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "notificar selección móvil")
@@ -156,6 +193,249 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
     elif name == "app/src/main/java/com/angulismotv/ui/InlinePlayerPresentationController.kt":
         text = replace_once(text, "        inlinePlayerContainer.visibility = View.VISIBLE\n        if (!isTV()) {\n", "        inlinePlayerContainer.visibility = View.VISIBLE\n        tvPlayerEmptyState?.visibility = View.GONE\n        if (!isTV()) {\n", "ocultar placeholder al seleccionar")
 
+    elif name == "app/src/main/java/com/angulismotv/data/ChannelFilterEngine.kt":
+        text = replace_once(text,
+            "    private val spanishLocale = Locale.forLanguageTag(\"es-AR\")\n",
+            "    private val spanishLocale = Locale.forLanguageTag(\"es-AR\")\n    private val combiningMarksRegex = Regex(\"\\\\p{M}+\")\n    private val whitespaceRegex = Regex(\"\\\\s+\")\n",
+            "reutilizar expresiones de normalización")
+        text = replace_once(text,
+            """    private fun normalizeCategory(raw: String): String = Normalizer
+        .normalize(raw.trim().lowercase(Locale.ROOT), Normalizer.Form.NFD)
+        .replace(Regex(\"\\\\p{M}+\"), \"\")
+        .replace('_', ' ')
+        .replace('-', ' ')
+        .replace(Regex(\"\\\\s+\"), \" \")
+        .trim()""",
+            """    private fun normalizeCategory(raw: String): String = Normalizer
+        .normalize(raw.trim().lowercase(Locale.ROOT), Normalizer.Form.NFD)
+        .replace(combiningMarksRegex, \"\")
+        .replace('_', ' ')
+        .replace('-', ' ')
+        .replace(whitespaceRegex, \" \")
+        .trim()""", "normalizar categoría sin crear Regex repetidas")
+        text = replace_once(text, ".split(Regex(\"\\\\s+\"))", ".split(whitespaceRegex)", "reutilizar normalización de nombres de categoría")
+
+    elif name == "app/src/main/java/com/angulismotv/ui/PlayerChannelPanelController.kt":
+        for old, new, label in [
+            ("import androidx.core.content.ContextCompat\\n", "import androidx.core.content.ContextCompat\\nimport androidx.lifecycle.lifecycleScope\\nimport kotlinx.coroutines.Dispatchers\\nimport kotlinx.coroutines.Job\\nimport kotlinx.coroutines.delay\\nimport kotlinx.coroutines.launch\\nimport kotlinx.coroutines.withContext\\n", "imports coroutines panel"),
+            ("    private var channelNumbersByIdentity: Map<String, Int> = emptyMap()\\n", """    private var channelNumbersByIdentity: Map<String, Int> = emptyMap()
+    private var catalogGeneration = 0
+    private var channelListJob: Job? = null
+    private var searchJob: Job? = null
+    private var searchGeneration = 0
+    private var preparedCatalog: List<Channel>? = null
+    private var preparedCategoryItems: List<CategoriesAdapter.CategoryItem> = emptyList()
+""", "estado de tareas del panel"),
+        ]:
+            text = replace_once(text, old, new, label)
+
+        old_catalog = """    fun setChannelCatalog(channels: List<Channel>) {
+        filteredChannels = channels
+        channelNumbersByIdentity = ChannelCatalog.channelNumbersByIdentity(channels)
+    }
+"""
+        new_catalog = """    fun setChannelCatalog(channels: List<Channel>) {
+        filteredChannels = channels
+        val requestGeneration = ++catalogGeneration
+        searchGeneration++
+        searchJob?.cancel()
+        channelListJob?.cancel()
+        preparedCatalog = null
+        preparedCategoryItems = emptyList()
+        channelNumbersByIdentity = emptyMap()
+        val snapshot = channels
+
+        activity.lifecycleScope.launch {
+            val prepared = withContext(Dispatchers.Default) {
+                val countsByCategory = snapshot.groupingBy {
+                    ChannelFilterEngine.categoryKey(it.category)
+                }.eachCount()
+                val categoryItems = ChannelFilterEngine.availableCategories(snapshot).map { (key, label) ->
+                    CategoriesAdapter.CategoryItem(key, label, countsByCategory[key] ?: 0)
+                }
+                Triple(ChannelCatalog.channelNumbersByIdentity(snapshot), categoryItems, snapshot)
+            }
+            if (requestGeneration != catalogGeneration || activity.isFinishing || activity.isDestroyed ||
+                getChannels() !== snapshot) return@launch
+
+            channelNumbersByIdentity = prepared.first
+            preparedCategoryItems = prepared.second
+            preparedCatalog = prepared.third
+            if (isReady) {
+                updateCategoriesList()
+                updateChannelsList(scrollToSelected = true)
+                if (isSearchActive) scheduleSearch(menuSearchInput.text.toString())
+            }
+        }
+    }
+"""
+        text = replace_once(text, old_catalog, new_catalog, "preparar catálogo del panel en segundo plano")
+
+        old_categories = """    private fun updateCategoriesList() {
+        val channels = getChannels()
+        if (!isReady || channels.isEmpty()) return
+
+        // Group source-specific labels (e.g. "Sports", "News", "Entertainment") into the
+        // same concise category set used on the main screen. Count each group in one pass.
+        val countsByCategory = channels.groupingBy {
+            ChannelFilterEngine.categoryKey(it.category)
+        }.eachCount()
+        val items = ChannelFilterEngine.availableCategories(channels).map { (key, label) ->
+            CategoriesAdapter.CategoryItem(
+                key = key,
+                name = label,
+                count = countsByCategory[key] ?: 0
+            )
+        }
+"""
+        new_categories = """    private fun updateCategoriesList() {
+        val channels = getChannels()
+        if (!isReady || channels.isEmpty() || preparedCatalog !== channels) return
+
+        // The category labels and counts were prepared once off the UI thread for this catalogue.
+        val items = preparedCategoryItems
+"""
+        text = replace_once(text, old_categories, new_categories, "reutilizar metadatos de categorías")
+
+        old_list = """    private fun updateChannelsList(scrollToSelected: Boolean = false) {
+        if (!isReady) return
+        val channels = getChannels()
+        filteredChannels = ChannelFilterEngine.filter(
+            channels = channels,
+            category = currentCategory,
+            country = ChannelFilterEngine.ALL_COUNTRIES,
+            query = ""
+        )
+        val current = getCurrentChannel()
+        val selectedIndex = filteredChannels.indexOfFirst { current != null && ChannelIdentity.same(it, current) }
+        sideChannelsAdapter.submitList(filteredChannels, selectedIndex)
+        channelsCountText.text = filteredChannels.size.toString()
+        if (scrollToSelected && selectedIndex >= 0) {
+            channelsList.post {
+                (channelsList.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(selectedIndex, 0)
+            }
+        }
+    }
+"""
+        new_list = """    private fun updateChannelsList(scrollToSelected: Boolean = false) {
+        if (!isReady) return
+        val channels = getChannels()
+        if (preparedCatalog !== channels) return
+        val expectedCatalogGeneration = catalogGeneration
+        val requestedCategory = currentCategory
+        val current = getCurrentChannel()
+        channelListJob?.cancel()
+        channelListJob = activity.lifecycleScope.launch {
+            val result = withContext(Dispatchers.Default) {
+                ChannelFilterEngine.filter(
+                    channels = channels,
+                    category = requestedCategory,
+                    country = ChannelFilterEngine.ALL_COUNTRIES,
+                    query = ""
+                )
+            }
+            if (expectedCatalogGeneration != catalogGeneration || requestedCategory != currentCategory ||
+                channels !== getChannels() || isSearchActive || activity.isFinishing || activity.isDestroyed) {
+                return@launch
+            }
+            filteredChannels = result
+            val selectedIndex = result.indexOfFirst { current != null && ChannelIdentity.same(it, current) }
+            sideChannelsAdapter.submitList(result, selectedIndex)
+            channelsCountText.text = result.size.toString()
+            if (scrollToSelected && selectedIndex >= 0) {
+                channelsList.post {
+                    if (expectedCatalogGeneration == catalogGeneration && requestedCategory == currentCategory) {
+                        (channelsList.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(selectedIndex, 0)
+                    }
+                }
+            }
+        }
+    }
+"""
+        text = replace_once(text, old_list, new_list, "filtrar canales del panel fuera del hilo visual")
+
+        old_after = """            override fun afterTextChanged(s: Editable?) {
+                val query = s?.toString()?.trim()?.lowercase(Locale.ROOT).orEmpty()
+                if (query.isNotEmpty()) {
+                    val results = ChannelCatalog.searchByName(getChannels(), query)
+                    searchAdapter.submitList(results)
+                    channelsList.visibility = View.GONE
+                    menuSearchResults.visibility = if (results.isNotEmpty()) View.VISIBLE else View.GONE
+                    searchEmptyText.visibility = if (results.isEmpty()) View.VISIBLE else View.GONE
+                    channelsCountText.text = results.size.toString()
+                    contentTitle.text = "RESULTADOS: \\"$query\\""
+                } else {
+                    searchAdapter.submitList(emptyList())
+                    menuSearchResults.visibility = View.GONE
+                    searchEmptyText.visibility = View.GONE
+                    channelsList.visibility = View.VISIBLE
+                    contentTitle.text = "BUSCAR"
+                    channelsCountText.text = ""
+                }
+            }
+"""
+        new_after = """            override fun afterTextChanged(s: Editable?) {
+                scheduleSearch(s?.toString().orEmpty())
+            }
+"""
+        text = replace_once(text, old_after, new_after, "buscar sin bloquear la interfaz")
+
+        method_anchor = """    private fun updateCategoriesList() {
+"""
+        search_method = """    private fun scheduleSearch(rawQuery: String) {
+        val query = rawQuery.trim()
+        val requestGeneration = ++searchGeneration
+        searchJob?.cancel()
+
+        if (query.isEmpty()) {
+            searchAdapter.submitList(emptyList())
+            menuSearchResults.visibility = View.GONE
+            searchEmptyText.visibility = View.GONE
+            channelsList.visibility = View.VISIBLE
+            contentTitle.text = if (isSearchActive) "BUSCAR" else contentTitle.text
+            channelsCountText.text = if (isSearchActive) "" else filteredChannels.size.toString()
+            return
+        }
+
+        // Keep input responsive while the previous query is cancelled and the new query settles.
+        channelsList.visibility = View.GONE
+        menuSearchResults.visibility = View.GONE
+        searchEmptyText.visibility = View.GONE
+        contentTitle.text = "BUSCAR"
+        channelsCountText.text = ""
+
+        val channels = getChannels()
+        val expectedCatalogGeneration = catalogGeneration
+        searchJob = activity.lifecycleScope.launch {
+            delay(180)
+            val results = withContext(Dispatchers.Default) {
+                ChannelCatalog.searchByName(channels, query)
+            }
+            if (requestGeneration != searchGeneration || expectedCatalogGeneration != catalogGeneration ||
+                !isSearchActive || channels !== getChannels() || activity.isFinishing || activity.isDestroyed) {
+                return@launch
+            }
+            searchAdapter.submitList(results)
+            menuSearchResults.visibility = if (results.isNotEmpty()) View.VISIBLE else View.GONE
+            searchEmptyText.visibility = if (results.isEmpty()) View.VISIBLE else View.GONE
+            channelsCountText.text = results.size.toString()
+            contentTitle.text = "RESULTADOS: \\"$query\\""
+        }
+    }
+
+"""
+        if search_method.strip() not in text:
+            text = replace_once(text, method_anchor, search_method + method_anchor, "agregar búsqueda asíncrona")
+
+        text = replace_once(text,
+            "        if (isSearchActive) deactivateSearchMode()\\n        currentCategory = ALL_CHANNELS_CATEGORY",
+            "        if (isSearchActive) deactivateSearchMode()\\n        currentCategory = ALL_CHANNELS_CATEGORY",
+            "normalizar selección de todos los canales")
+        # Remove a duplicated guard that had no observable purpose in showAllChannels().
+        text = text.replace(
+            "        if (isSearchActive) deactivateSearchMode()\\n        if (isSearchActive) deactivateSearchMode()\\n",
+            "        if (isSearchActive) deactivateSearchMode()\\n"
+        )
     elif name == "app/src/main/java/com/angulismotv/ui/ChannelCategoryBarController.kt":
         text = replace_once(text, "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n", "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n    private var availableCountryKeys: List<String> = emptyList()\n", "guardar países preparados")
         text = replace_once(text, "        selectedCategoryFocusViewId = View.NO_ID\n    }\n\n    fun render() {\n        val categories = ChannelFilterEngine.availableCategories(getChannels())\n", "        selectedCategoryFocusViewId = View.NO_ID\n        availableCountryKeys = emptyList()\n    }\n\n    fun render(\n        preparedCategories: List<Pair<String, String>>? = null,\n        preparedCountries: List<String>? = null\n    ) {\n        val categories = (preparedCategories ?: ChannelFilterEngine.availableCategories(getChannels()))\n", "render categorías preparadas")
