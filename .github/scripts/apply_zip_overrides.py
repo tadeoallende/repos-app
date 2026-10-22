@@ -287,18 +287,21 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "        inlineChannel = channel\n        rememberLastActiveChannel(channel)\n        inlineSourceIndex = 0\n",
             "guardar el último canal al seleccionarlo")
 
-        text = replace_once(text,
-            "        inlineChannel = null\n        if (::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)\n",
-            """        inlineChannel = null
+        // El ZIP queda persistido tras compilar. Permitir volver a ejecutar este parche
+        // aunque el código de cierre ya esté presente con una variante de selección normalizada.
+        if '        inlineChannel = null\n        if (isTV) {\n            requireContext().getSharedPreferences("angulismotv_playback", android.content.Context.MODE_PRIVATE)\n                .edit().clear().apply()' not in text:
+            text = replace_once(text,
+                "        inlineChannel = null\n        if (::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)\n",
+                """        inlineChannel = null
         if (isTV) {
             requireContext().getSharedPreferences("angulismotv_playback", android.content.Context.MODE_PRIVATE)
                 .edit().clear().apply()
             view?.findViewById<View>(R.id.tv_inline_search_button)?.visibility = View.VISIBLE
             if (::channelsAdapter.isInitialized) channelsAdapter.setCategoryFocusTarget(R.id.tv_inline_search_button)
         }
-        if (isTV && ::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)
+        if (::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)
 """,
-            "limpiar el último canal al cerrar expresamente el reproductor")
+                "limpiar el último canal al cerrar expresamente el reproductor")
 
         text = replace_once(text,
             "        channelsSectionHeader.visibility = if (isTV) View.VISIBLE else View.GONE\n",
