@@ -8,7 +8,7 @@ import java.util.Locale
 object ChannelRegionPolicy {
     private val americasCountryCodes = setOf(
         // North, Central and South America, the Caribbean, and associated territories.
-        "ag", "ai", "ar", "aw", "bb", "bl", "bm", "bq", "bs", "bz", "ca", "cl", "co", "cr",
+        "ag", "ai", "ar", "aw", "bb", "bl", "bm", "bo", "bq", "br", "bs", "bz", "ca", "cl", "co", "cr",
         "cu", "cw", "dm", "do", "ec", "fk", "gd", "gf", "gl", "gp", "gs", "gt", "gy", "hn",
         "ht", "jm", "kn", "ky", "lc", "mf", "mq", "ms", "mx", "ni", "pa", "pe", "pm", "pr",
         "py", "sr", "sv", "sx", "tc", "tt", "us", "uy", "vc", "ve", "vg", "vi"
