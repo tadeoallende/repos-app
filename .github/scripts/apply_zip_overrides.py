@@ -45,13 +45,13 @@ def apply_nebula_visuals(name: str, text: str) -> str:
 
             value = None
             if any(token in resource_name for token in ("text_primary", "primary_text", "text_main")):
-                value = "#F0F4FF"
+                value = "#EDF2FA"
             elif any(token in resource_name for token in ("text_secondary", "secondary_text", "text_subtitle")):
-                value = "#B4BED7"
+                value = "#AAB7CA"
             elif any(token in resource_name for token in ("text_hint", "hint_text", "text_disabled")):
                 value = "#8290AE"
             elif any(token in resource_name for token in ("accent", "bottom_nav_color", "brand_cyan", "color_accent")):
-                value = "#63E6E0"
+                value = "#5CC7C6"
             elif any(token in resource_name for token in ("divider", "outline", "stroke", "border")):
                 value = "#26324A"
             elif any(token in resource_name for token in ("nebula", "cosmic", "space_purple", "indigo_accent")):
@@ -89,12 +89,12 @@ def apply_nebula_visuals(name: str, text: str) -> str:
     root.set(android_ns + "background", "@drawable/bg_channel_row_nebula")
     root.set(android_ns + "focusable", "true")
     root.set(android_ns + "clickable", "true")
-    root.set(android_ns + "paddingStart", "10dp")
-    root.set(android_ns + "paddingEnd", "10dp")
-    root.set(android_ns + "paddingTop", "5dp")
-    root.set(android_ns + "paddingBottom", "5dp")
-    root.set(android_ns + "minHeight", "58dp")
-    root.set(android_ns + "layout_marginBottom", "4dp")
+    root.set(android_ns + "paddingStart", "8dp")
+    root.set(android_ns + "paddingEnd", "8dp")
+    root.set(android_ns + "paddingTop", "4dp")
+    root.set(android_ns + "paddingBottom", "4dp")
+    root.set(android_ns + "minHeight", "52dp")
+    root.set(android_ns + "layout_marginBottom", "2dp")
     if root.get(android_ns + "layout_height") in (None, "match_parent"):
         root.set(android_ns + "layout_height", "wrap_content")
 
@@ -119,13 +119,13 @@ def apply_nebula_visuals(name: str, text: str) -> str:
                         text_nodes[0])
     for node in text_nodes:
         if node is primary_text:
-            node.set(android_ns + "textColor", "#F0F4FF")
+            node.set(android_ns + "textColor", "#EDF2FA")
             node.set(android_ns + "textSize", "15sp")
             node.set(android_ns + "fontFamily", "sans-serif-medium")
             node.set(android_ns + "maxLines", "1")
             node.set(android_ns + "ellipsize", "end")
         else:
-            node.set(android_ns + "textColor", "#B4BED7")
+            node.set(android_ns + "textColor", "#AAB7CA")
             node.set(android_ns + "maxLines", "1")
             node.set(android_ns + "ellipsize", "end")
 
@@ -1132,18 +1132,92 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "            currentChannelIndex = index\n            currentChannel = channel\n            loadChannelInfo(channel)\n",
             "            currentChannelIndex = index\n            currentChannel = channel\n            getSharedPreferences(\"angulismotv_playback\", MODE_PRIVATE).edit()\n                .putString(\"last_channel_key\", ChannelIdentity.key(channel))\n                .putString(\"last_channel_name\", channel.name)\n                .putString(\"last_channel_logo\", channel.logo)\n                .apply()\n            loadChannelInfo(currentChannel!!)\n",
             "recordar el último canal en fullscreen")
-        # El HUD aparece con un fundido y un desplazamiento corto, sin bloquear el mando.
+        # El zapping conserva solo el escudo; no muestra texto ni número junto al nombre.
         import re
-        pattern = re.compile(r"(?m)^(\\s*)([A-Za-z_][A-Za-z0-9_.]*)\\.visibility = View.VISIBLE$")
-        def animate_overlay(match):
-            indent, target = match.group(1), match.group(2)
-            if not any(token in target.lower() for token in ("overlay", "control", "hud")):
-                return match.group(0)
-            return (match.group(0) + "\\n" +
-                    indent + target + ".alpha = 0f\\n" +
-                    indent + target + ".translationY = 8f\\n" +
-                    indent + target + ".animate().alpha(1f).translationY(0f).setDuration(180L).start()")
-        text = pattern.sub(animate_overlay, text)
+        zapping_name_pattern = re.compile(
+            r"        zappingChannelName\?\.apply \{\n.*?        \}\n",
+            re.S
+        )
+        text, zapping_name_matches = zapping_name_pattern.subn(
+            "        zappingChannelName?.visibility = View.GONE\n",
+            text,
+            count=1
+        )
+        if zapping_name_matches == 0 and "zappingChannelName?.visibility = View.GONE" not in text:
+            raise RuntimeError("No se pudo ocultar el nombre transitorio del zapping.")
+
+        # Primero preparar estado invisible y después animar; evitar destellos y reinicios.
+        reveal_helpers = """    private fun revealControlView(target: View, slide: Boolean) {
+        target.animate().cancel()
+        if (target.visibility != View.VISIBLE) {
+            target.alpha = 0f
+            target.translationY = if (slide) 12f * resources.displayMetrics.density else 0f
+            target.visibility = View.VISIBLE
+        }
+        target.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(230L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator(1.35f))
+            .withEndAction {
+                if (target.visibility == View.VISIBLE) {
+                    target.alpha = 1f
+                    target.translationY = 0f
+                }
+            }
+            .start()
+    }
+
+    private fun concealControlView(target: View, slide: Boolean) {
+        if (target.visibility != View.VISIBLE) return
+        target.animate().cancel()
+        target.animate()
+            .alpha(0f)
+            .translationY(if (slide) 10f * resources.displayMetrics.density else 0f)
+            .setDuration(150L)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                target.visibility = View.GONE
+                target.alpha = 1f
+                target.translationY = 0f
+            }
+            .start()
+    }
+
+"""
+        if "    private fun revealControlView(target: View, slide: Boolean)" not in text:
+            text = replace_once(
+                text,
+                "    private fun showControls() {",
+                reveal_helpers + "    private fun showControls() {",
+                "añadir transiciones suaves a los controles"
+            )
+
+        def replace_in_method(source: str, start_marker: str, end_marker: str, old: str, new: str, label: str) -> str:
+            start = source.find(start_marker)
+            end = source.find(end_marker, start + len(start_marker))
+            if start < 0 or end < 0:
+                raise RuntimeError("No se encontró el método para " + label)
+            region = source[start:end]
+            region = replace_once(region, old, new, label)
+            return source[:start] + region + source[end:]
+
+        visible_pair = "        controlsOverlay.visibility = View.VISIBLE\n        bottomControls.visibility = View.VISIBLE\n"
+        reveal_pair = "        revealControlView(controlsOverlay, slide = false)\n        revealControlView(bottomControls, slide = true)\n"
+        text = replace_in_method(
+            text, "    private fun showControls() {", "    private fun showControlsTemporarily() {",
+            visible_pair, reveal_pair, "mostrar controles"
+        )
+        text = replace_in_method(
+            text, "    private fun showControlsTemporarily() {", "    private fun hideControls() {",
+            visible_pair, reveal_pair, "mostrar controles temporales"
+        )
+        text = replace_in_method(
+            text, "    private fun hideControls() {", "    private fun updatePlayerTimeline() {",
+            "        controlsOverlay.visibility = View.GONE\n        bottomControls.visibility = View.GONE\n",
+            "        concealControlView(controlsOverlay, slide = false)\n        concealControlView(bottomControls, slide = true)\n",
+            "ocultar controles"
+        )
 
     elif name == "app/src/main/java/com/angulismotv/MainActivity.kt":
         text = replace_once(text,
@@ -1309,27 +1383,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         if root is not None:
             def norm_attr(node, key):
                 return (node.get(android_ns + key, "") or "").lower().replace("_", " ").replace("-", " ")
-            def favorite_control(node):
-                identity = (node.get(android_ns + "id", "") + " " +
-                            norm_attr(node, "contentDescription") + " " +
-                            norm_attr(node, "text") + " " +
-                            norm_attr(node, "tooltipText")).lower()
-                return any(word in identity for word in ("favorite", "favourite", "favorito", "favoritos"))
-            # Conservar el ID para ViewBinding/Kotlin, pero colapsar el control por completo.
-            # GONE + tamaño cero elimina el espacio y evita que entre en la navegación por foco.
-            for node in root.iter():
-                if favorite_control(node) and node.tag.split("}")[-1] in (
-                    "Button", "ImageButton", "ImageView", "TextView", "MaterialButton"
-                ):
-                    node.set(android_ns + "visibility", "gone")
-                    node.set(android_ns + "layout_width", "0dp")
-                    node.set(android_ns + "layout_height", "0dp")
-                    node.set(android_ns + "minWidth", "0dp")
-                    node.set(android_ns + "minHeight", "0dp")
-                    node.set(android_ns + "padding", "0dp")
-                    node.set(android_ns + "clickable", "false")
-                    node.set(android_ns + "focusable", "false")
-                    node.set(android_ns + "focusableInTouchMode", "false")
+            # Favoritos está implementado: no ocultar ni colapsar ese control.
             # El control de salida debe comunicar volver/salir, no cerrar algo ambiguo.
             for node in root.iter():
                 identity = (node.get(android_ns + "id", "") + " " +
@@ -1341,6 +1395,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
                         if "close" in src or "cross" in src or "cerrar" in src:
                             node.set(android_ns + "src", "@drawable/ic_arrow_back")
                         node.set(android_ns + "contentDescription", "Salir del reproductor")
+            if name.endswith("activity_unified_player.xml"):
+                for node in root.iter():
+                    if node.get(android_ns + "id", "").endswith("/zapping_channel_name"):
+                        node.set(android_ns + "visibility", "gone")
             text = ET.tostring(root, encoding="unicode", xml_declaration=True)
 
     text = apply_nebula_visuals(name, text)
@@ -1442,13 +1500,24 @@ def apply_ui_redesign(name: str, text: str) -> str:
         ET.register_namespace("android", android_ns[1:-1])
         ET.register_namespace("app", "http://schemas.android.com/apk/res-auto")
         root = ET.fromstring(text)
+        app_ns = "{http://schemas.android.com/apk/res-auto}"
         for view_id in ("menu_channels", "menu_agenda"):
             suffix = "/" + view_id
             item = next((node for node in root.iter()
                          if node.get(android_ns + "id", "").endswith(suffix)), None)
             if item is None:
                 raise RuntimeError("No se encontró el elemento del menú lateral: " + view_id)
-            item.set(android_ns + "background", "@android:color/transparent")
+            # El icono marca la sección activa; el fondo neutro marca dónde está el foco.
+            item.set(android_ns + "background", "@drawable/bg_tv_rail_item")
+            item.set(android_ns + "stateListAnimator", "@null")
+            item.set(android_ns + "focusable", "true")
+            item.set(android_ns + "focusableInTouchMode", "true")
+            item.set(android_ns + "clickable", "true")
+        bottom_nav = next((node for node in root.iter()
+                           if node.get(android_ns + "id", "").endswith("/bottom_navigation")), None)
+        if bottom_nav is not None:
+            bottom_nav.set(app_ns + "itemIconTint", "@color/bottom_nav_icon_tint")
+            bottom_nav.set(app_ns + "itemTextColor", "@color/bottom_nav_text_tint")
         text = ET.tostring(root, encoding="unicode", xml_declaration=True)
 
     elif name == "app/src/main/res/layout/fragment_channels_tv.xml":
@@ -1602,56 +1671,6 @@ def apply_ui_redesign(name: str, text: str) -> str:
 
 
 
-def _diagnose_archive_ui(name: str, raw: bytes) -> None:
-    """Temporary build-log inspection for TV focus, zapping and player HUD behavior."""
-    import re
-    relevant = (
-        "UnifiedPlayerActivity.kt", "ChannelsAdapter.kt", "MainActivity.kt",
-        "fragment_channels_tv.xml", "activity_main.xml", "activity_unified_player.xml",
-        "item_channel.xml", "item_channel_side.xml", "SideChannelsAdapter.kt",
-        "PlayerChannelPanelController.kt", "side_menu_bg.xml", "side_menu_item_bg.xml",
-        "side_channel_item_bg.xml", "side_channel_item_selected.xml", "bg_tv_player_focus.xml"
-    )
-    if not any(name.endswith(item) for item in relevant):
-        return
-    try:
-        source = raw.decode("utf-8")
-    except UnicodeDecodeError:
-        return
-    lines = source.splitlines()
-    print(f"\\n===== UI-DIAG {name} ({len(lines)} lines) =====")
-    if name.endswith("UnifiedPlayerActivity.kt"):
-        pattern = re.compile(r"zappingChannelName|zappingOverlay|bindZappingViews|hideZappingRunnable|zapTo|loadChannelInfo|private fun (showControls|hideControls|updateControlsVisibility)|zapping_channel_name", re.I)
-    elif name.endswith("ChannelsAdapter.kt"):
-        pattern = re.compile(r"setTextColor|textColor|isSelected|previewChannelKey|setBackground|focus|selected|itemView", re.I)
-    elif name.endswith("SideChannelsAdapter.kt") or name.endswith("PlayerChannelPanelController.kt"):
-        pattern = re.compile(r"setTextColor|channelName|channel_name|isSelected|selected|accent|currentChannel|channel_name", re.I)
-    elif name.endswith(("activity_unified_player.xml", "item_channel.xml", "item_channel_side.xml")) or any(name.endswith(item) for item in ("side_menu_bg.xml", "side_menu_item_bg.xml", "side_channel_item_bg.xml", "side_channel_item_selected.xml", "bg_tv_player_focus.xml")):
-        pattern = re.compile(r"zapping|channel_name|channel_category|controls_overlay|bottom_controls|background|textColor|tint|focusable|selected|selected|visibility|layout_width|layout_height", re.I)
-    elif name.endswith("MainActivity.kt"):
-        pattern = re.compile(r"menu_channels|menu_agenda|setOnFocusChangeListener|requestFocus|isSelected|selected|focused|setOnClickListener", re.I)
-    else:
-        pattern = re.compile(r"menu_channels|menu_agenda|channels_recycler|tv_channels_panel|focusable|background|textColor|tint|selected", re.I)
-    spans = []
-    for i, line in enumerate(lines):
-        if pattern.search(line):
-            start, end = max(0, i - 2), min(len(lines), i + 3)
-            if spans and start <= spans[-1][1] + 1:
-                spans[-1] = (spans[-1][0], max(spans[-1][1], end))
-            else:
-                spans.append((start, end))
-    budget = 210
-    for start, end in spans:
-        block = lines[start:end]
-        if len(block) > budget:
-            block = block[:budget]
-        for j, line in enumerate(block, start + 1):
-            print(f"UI-DIAG:{j}: {line}")
-        budget -= len(block)
-        if budget <= 0:
-            print("UI-DIAG: (recorte por límite de diagnóstico)")
-            break
-
 def main() -> int:
     if len(sys.argv) != 2:
         print("Uso: apply_zip_overrides.py <proyecto.zip>", file=sys.stderr)
@@ -1681,12 +1700,9 @@ def main() -> int:
         with zipfile.ZipFile(archive, "r") as source, zipfile.ZipFile(
             temp, "w", compression=zipfile.ZIP_DEFLATED
         ) as target:
-            ui_files = [info.filename for info in source.infolist() if info.filename.endswith((".xml", ".kt")) and any(token in info.filename.lower() for token in ("player", "channel", "menu", "agenda", "navigation", "mainactivity"))]
-            print("UI-DIAG files: " + " | ".join(ui_files[:100]))
             for info in source.infolist():
                 name = info.filename
                 data = overlays.get(name, source.read(name))
-                _diagnose_archive_ui(name, data)
                 data = apply_source_optimizations(name, data)
                 target.writestr(info, data)
                 if name in overlays:
