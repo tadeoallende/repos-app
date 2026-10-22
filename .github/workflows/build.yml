@@ -5,30 +5,46 @@ on:
     paths:
       - '*.zip'
       - '.github/workflows/build.yml'
+      - '.github/project-overrides/**'
+      - '.github/scripts/apply_zip_overrides.py'
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      # Repository Actions variable IPTV_ORG_URL accepts a compatible M3U URL or 'disabled'.
+      ORG_GRADLE_PROJECT_IPTV_ORG_URL: ${{ vars.IPTV_ORG_URL || secrets.IPTV_ORG_URL || 'https://iptv-org.github.io/iptv/index.m3u' }}
       ORG_GRADLE_PROJECT_CHANNELS_URL: ${{ secrets.CHANNELS_URL }}
       ORG_GRADLE_PROJECT_EVENTS_URL: ${{ secrets.EVENTS_URL }}
+      ORG_GRADLE_PROJECT_CUSTOM_CHANNELS_URL: ${{ secrets.CUSTOM_CHANNELS_URL || format('https://raw.githubusercontent.com/{0}/{1}/canales.json', github.repository, github.ref_name) }}
       ORG_GRADLE_PROJECT_UPDATE_URL: ${{ secrets.UPDATE_URL }}
       ORG_GRADLE_PROJECT_WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Descomprimir proyecto
+      - name: Aplicar cambios sobre el ZIP base
         run: |
+          set -euo pipefail
           ZIP="$(ls *.zip | head -1)"
           echo "Usando: $ZIP"
+          python3 .github/scripts/apply_zip_overrides.py "$ZIP"
+          echo "SOURCE_ZIP=$ZIP" >> "$GITHUB_ENV"
           unzip -q -o "$ZIP" -d proyecto
           SETTINGS="$(find proyecto -name settings.gradle.kts | head -1)"
+          if [ -z "$SETTINGS" ]; then
+            echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
+            exit 1
+          fi
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
@@ -46,11 +62,16 @@ jobs:
         with:
           build-root-directory: ${{ env.PROJECT_DIR }}
 
+      - name: Pruebas unitarias
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+
       - name: Compilar debug
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           set -o pipefail
-          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Compilar release (prueba R8)
@@ -58,6 +79,10 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+
+      # El ZIP base se mantiene inmutable en Git. Los overlays se aplican solo
+      # dentro del runner para que builds simultáneos no compitan al hacer push
+      # del mismo archivo binario a la rama.
 
       - name: Guardar APK para las pruebas
         uses: actions/upload-artifact@v4
@@ -67,6 +92,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publicar APK en Releases
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -80,13 +106,10 @@ jobs:
         if: failure()
         run: |
           {
-            echo '## Errores de compilación'
-            echo '```'
+            echo 'Errores relevantes de compilación:'
             grep -E '^e: |What went wrong|Execution failed|error:' -A4 "$GITHUB_WORKSPACE/build.log" | head -150
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Abre la app en un emulador de Android y muestra el error si se cierra
   probar-en-emulador:
     needs: build
     runs-on: ubuntu-latest
@@ -136,20 +159,16 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Prueba en emulador (Android API ${{ matrix.api }})"
+            echo "Prueba en emulador (Android API ${{ matrix.api }})"
             if [ -s pid.txt ]; then
               echo "La app sigue abierta después de 20 segundos."
             else
-              echo "**La app NO está en ejecución: se cerró.**"
+              echo "La app NO está en ejecución: se cerró."
             fi
-            echo '### Error (FATAL EXCEPTION)'
-            echo '```'
+            echo 'Error FATAL EXCEPTION'
             grep -A30 "FATAL EXCEPTION" full.log | head -80 || true
-            echo '```'
-            echo '### Otras líneas de la app'
-            echo '```'
+            echo 'Otras líneas de la app'
             grep -E "angulismotv|AndroidRuntime" full.log | head -40 || true
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar capturas y log
@@ -160,4 +179,90 @@ jobs:
           path: |
             full.log
             screen.png
+          if-no-files-found: ignore
+  probar-en-emulador-tv:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-debug
+          path: apk
+
+      - name: Habilitar aceleración (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "SIN KVM: el emulador puede tardar mucho"
+
+      - name: Preparar prueba Android TV
+        run: |
+          cat > prueba-tv.sh <<'SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          adb install -r apk/app-debug.apk
+          adb shell pm list features > features-tv.txt
+          if ! grep -q 'android.software.leanback' features-tv.txt; then
+            echo "::error::La imagen iniciada no expone la función Android TV (leanback)."
+            exit 1
+          fi
+          adb logcat -c
+          adb shell am start -W -n com.angulismotv/.MainActivity
+          sleep 25
+          adb logcat -d > full-tv.log
+          adb exec-out screencap -p > screen-tv.png
+          adb shell pidof com.angulismotv > pid-tv.txt || true
+          if [ ! -s pid-tv.txt ]; then
+            echo "::error::AngulismoTV no sigue abierta en el emulador Android TV."
+            exit 1
+          fi
+          if grep -q "FATAL EXCEPTION" full-tv.log; then
+            echo "::error::Se detectó una excepción fatal en Android TV."
+            grep -A30 "FATAL EXCEPTION" full-tv.log | head -80 || true
+            exit 1
+          fi
+          SCRIPT
+
+      - name: Ejecutar en dispositivo virtual Android TV
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash prueba-tv.sh
+
+      - name: Resumen Android TV
+        if: always()
+        run: |
+          {
+            echo "Prueba de arranque Android TV (API 34)"
+            if [ -s pid-tv.txt ]; then
+              echo "La app sigue abierta después de 25 segundos."
+            else
+              echo "La app NO quedó en ejecución."
+            fi
+            echo "Características del dispositivo"
+            cat features-tv.txt 2>/dev/null | grep -E 'leanback|television|touchscreen' || true
+            echo "Excepciones fatales"
+            grep -A30 "FATAL EXCEPTION" full-tv.log 2>/dev/null | head -80 || true
+            echo "Registros de AngulismoTV"
+            grep -E "angulismotv|AndroidRuntime" full-tv.log 2>/dev/null | head -50 || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar captura y registros Android TV
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-android-tv
+          path: |
+            screen-tv.png
+            full-tv.log
+            features-tv.txt
+            pid-tv.txt
           if-no-files-found: ignore
