@@ -10,10 +10,11 @@ import zipfile
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
-    if old in text:
-        return text.replace(old, new, 1)
+    # First check the full replacement because many imports/headers are prefixes of themselves.
     if new in text:
         return text
+    if old in text:
+        return text.replace(old, new)
     raise RuntimeError(f"No se pudo aplicar {label}: el código base no coincide.")
 
 
