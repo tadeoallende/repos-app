@@ -2,7 +2,7 @@
   "version": 1,
   "fuentePrincipal": {
     "habilitada": true,
-    "nombre": "IPTV-org",
+    "nombre": "Canales-App",
     "url": "https://raw.githubusercontent.com/tadeoallende/canales-app/refs/heads/main/canales.json"
   }
 }
