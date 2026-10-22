@@ -759,6 +759,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         }
 
         fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {
+            number.text = if (channelNumber > 0) channelNumber.toString() else "—"
             itemView.isSelected = isSelected
             marker.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
             itemView.setBackgroundResource(
