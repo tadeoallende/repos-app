@@ -209,7 +209,6 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
     /** Opens/closes the search field from the shared header (mobile and Android TV). */""",
                 "conectar el buscador integrado en el reproductor")
-        }
 
         text = replace_once(text,
             """            val opening = !isSearchVisible
