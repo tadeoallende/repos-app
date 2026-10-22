@@ -447,144 +447,6 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "        if (isSearchActive) deactivateSearchMode()\n        if (isSearchActive) deactivateSearchMode()\n",
             "        if (isSearchActive) deactivateSearchMode()\n"
         )
-    elif name == "app/src/main/java/com/angulismotv/adapters/SideChannelsAdapter.kt":
-        text = replace_once(text,
-            "import androidx.recyclerview.widget.DiffUtil\n",
-            "import androidx.recyclerview.widget.AsyncListDiffer\nimport androidx.recyclerview.widget.DiffUtil\n",
-            "importar actualización diferencial asíncrona")
-        text = replace_once(text,
-            "import com.angulismotv.models.Channel\n",
-            "import com.angulismotv.models.Channel\nimport com.angulismotv.models.ChannelIdentity\n",
-            "importar identidad de selección")
-        old_adapter = """    private var channels: List<Channel> = emptyList()
-    private var selectedIndex: Int = -1
-
-    fun submitList(newChannels: List<Channel>, selectedIdx: Int) {
-        val oldChannels = channels
-        val oldSelected = selectedIndex
-        val nextChannels = newChannels.toList()
-        val nextSelected = selectedIdx
-
-        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
-            override fun getOldListSize() = oldChannels.size
-            override fun getNewListSize() = nextChannels.size
-
-            override fun areItemsTheSame(oldPosition: Int, newPosition: Int): Boolean =
-                oldChannels[oldPosition].name == nextChannels[newPosition].name &&
-                    oldChannels[oldPosition].logo == nextChannels[newPosition].logo
-
-            override fun areContentsTheSame(oldPosition: Int, newPosition: Int): Boolean {
-                val oldChannel = oldChannels[oldPosition]
-                val newChannel = nextChannels[newPosition]
-                val oldWasSelected = oldPosition == oldSelected
-                val newIsSelected = newPosition == nextSelected
-                return oldChannel == newChannel && oldWasSelected == newIsSelected
-            }
-        })
-
-        channels = nextChannels
-        selectedIndex = nextSelected
-        diff.dispatchUpdatesTo(this)
-    }
-"""
-        new_adapter = """    private val differ = AsyncListDiffer(this, object : DiffUtil.ItemCallback<Channel>() {
-        override fun areItemsTheSame(oldItem: Channel, newItem: Channel): Boolean =
-            oldItem.name == newItem.name && oldItem.logo == newItem.logo
-
-        override fun areContentsTheSame(oldItem: Channel, newItem: Channel): Boolean =
-            oldItem == newItem
-    })
-    private var selectedChannelKey: String? = null
-
-    fun submitList(
-        newChannels: List<Channel>,
-        selectedIdx: Int,
-        onCommitted: (() -> Unit)? = null
-    ) {
-        val snapshot = newChannels.toList()
-        selectedChannelKey = snapshot.getOrNull(selectedIdx)?.let(ChannelIdentity::key)
-        differ.submitList(snapshot) {
-            // Selection is presentation state; update visible row payloads after the background diff.
-            if (itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_SELECTION_STATE)
-            onCommitted?.invoke()
-        }
-    }
-"""
-        text = replace_once(text, old_adapter, new_adapter, "mover DiffUtil del panel a AsyncListDiffer")
-        text = replace_once(text,
-            "        val channel = channels[position]\n        holder.bind(channel, position == selectedIndex, channelNumber(channel))",
-            "        val channel = differ.currentList[position]\n        holder.bind(channel, ChannelIdentity.key(channel) == selectedChannelKey, channelNumber(channel))",
-            "leer filas desde AsyncListDiffer")
-        text = replace_once(text,
-            "                channels.getOrNull(currentPosition)?.let { currentChannel ->",
-            "                differ.currentList.getOrNull(currentPosition)?.let { currentChannel ->",
-            "proteger clics ante actualización asíncrona")
-        text = replace_once(text, "    override fun getItemCount() = channels.size\n", "    override fun getItemCount() = differ.currentList.size\n", "consultar lista diferencial")
-        text = replace_once(text,
-            """    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {""",
-            """    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
-        if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_SELECTION_STATE }) {
-            differ.currentList.getOrNull(position)?.let { channel ->
-                holder.updateSelection(
-                    channel,
-                    ChannelIdentity.key(channel) == selectedChannelKey,
-                    channelNumber(channel)
-                )
-            }
-            return
-        }
-        onBindViewHolder(holder, position)
-    }
-
-    companion object {
-        private const val PAYLOAD_SELECTION_STATE = "selection_state"
-    }
-
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {""",
-            "actualizar selección mediante payload")
-        text = replace_once(text,
-            """            itemView.isSelected = isSelected
-            marker.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
-            name.text = channel.name
-            optionsIndicator.visibility = if (!channel.options.isNullOrEmpty()) View.VISIBLE else View.GONE
-            itemView.setBackgroundResource(
-                if (isSelected) R.drawable.side_channel_item_selected
-                else R.drawable.side_channel_item_bg
-            )
-            itemView.contentDescription = buildString {
-                if (channelNumber > 0) append("Canal $channelNumber: ")
-                append(channel.name)
-                if (!channel.options.isNullOrEmpty()) append(", con opciones")
-                if (isSelected) append(", en reproducción")
-            }
-            // Mantiene la forma original de cada logo; el elemento no agrega una tarjeta detrás.
-            logo.loadChannelLogo(channel.name, channel.logo)
-        }
-""",
-            """            name.text = channel.name
-            optionsIndicator.visibility = if (!channel.options.isNullOrEmpty()) View.VISIBLE else View.GONE
-            updateSelection(channel, isSelected, channelNumber)
-            // Mantiene la forma original de cada logo; el elemento no agrega una tarjeta detrás.
-            logo.loadChannelLogo(channel.name, channel.logo)
-        }
-
-        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {
-            itemView.isSelected = isSelected
-            marker.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
-            itemView.setBackgroundResource(
-                if (isSelected) R.drawable.side_channel_item_selected
-                else R.drawable.side_channel_item_bg
-            )
-            itemView.contentDescription = buildString {
-                if (channelNumber > 0) append("Canal $channelNumber: ")
-                append(channel.name)
-                if (!channel.options.isNullOrEmpty()) append(", con opciones")
-                if (isSelected) append(", en reproducción")
-            }
-        }
-""", "reutilizar render de selección")
-
-
         # Keep the channel-number index off main, skip TV-only work on mobile, and restore focus
         # only after asynchronous list changes have committed.
         text = text.replace("import java.util.Locale\n", "")
@@ -774,6 +636,145 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "val index = getChannels().indexOfFirst { ChannelIdentity.same(it, channel) }",
             "val index = channelNumbersByIdentity[ChannelIdentity.key(channel)]?.minus(1)\n                    ?: getChannels().indexOfFirst { ChannelIdentity.same(it, channel) }",
             "usar índice O(1) al elegir resultado de búsqueda")
+
+    elif name == "app/src/main/java/com/angulismotv/adapters/SideChannelsAdapter.kt":
+        text = replace_once(text,
+            "import androidx.recyclerview.widget.DiffUtil\n",
+            "import androidx.recyclerview.widget.AsyncListDiffer\nimport androidx.recyclerview.widget.DiffUtil\n",
+            "importar actualización diferencial asíncrona")
+        text = replace_once(text,
+            "import com.angulismotv.models.Channel\n",
+            "import com.angulismotv.models.Channel\nimport com.angulismotv.models.ChannelIdentity\n",
+            "importar identidad de selección")
+        old_adapter = """    private var channels: List<Channel> = emptyList()
+    private var selectedIndex: Int = -1
+
+    fun submitList(newChannels: List<Channel>, selectedIdx: Int) {
+        val oldChannels = channels
+        val oldSelected = selectedIndex
+        val nextChannels = newChannels.toList()
+        val nextSelected = selectedIdx
+
+        val diff = DiffUtil.calculateDiff(object : DiffUtil.Callback() {
+            override fun getOldListSize() = oldChannels.size
+            override fun getNewListSize() = nextChannels.size
+
+            override fun areItemsTheSame(oldPosition: Int, newPosition: Int): Boolean =
+                oldChannels[oldPosition].name == nextChannels[newPosition].name &&
+                    oldChannels[oldPosition].logo == nextChannels[newPosition].logo
+
+            override fun areContentsTheSame(oldPosition: Int, newPosition: Int): Boolean {
+                val oldChannel = oldChannels[oldPosition]
+                val newChannel = nextChannels[newPosition]
+                val oldWasSelected = oldPosition == oldSelected
+                val newIsSelected = newPosition == nextSelected
+                return oldChannel == newChannel && oldWasSelected == newIsSelected
+            }
+        })
+
+        channels = nextChannels
+        selectedIndex = nextSelected
+        diff.dispatchUpdatesTo(this)
+    }
+"""
+        new_adapter = """    private val differ = AsyncListDiffer(this, object : DiffUtil.ItemCallback<Channel>() {
+        override fun areItemsTheSame(oldItem: Channel, newItem: Channel): Boolean =
+            oldItem.name == newItem.name && oldItem.logo == newItem.logo
+
+        override fun areContentsTheSame(oldItem: Channel, newItem: Channel): Boolean =
+            oldItem == newItem
+    })
+    private var selectedChannelKey: String? = null
+
+    fun submitList(
+        newChannels: List<Channel>,
+        selectedIdx: Int,
+        onCommitted: (() -> Unit)? = null
+    ) {
+        val snapshot = newChannels.toList()
+        selectedChannelKey = snapshot.getOrNull(selectedIdx)?.let(ChannelIdentity::key)
+        differ.submitList(snapshot) {
+            // Selection is presentation state; update visible row payloads after the background diff.
+            if (itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_SELECTION_STATE)
+            onCommitted?.invoke()
+        }
+    }
+"""
+        text = replace_once(text, old_adapter, new_adapter, "mover DiffUtil del panel a AsyncListDiffer")
+        text = replace_once(text,
+            "        val channel = channels[position]\n        holder.bind(channel, position == selectedIndex, channelNumber(channel))",
+            "        val channel = differ.currentList[position]\n        holder.bind(channel, ChannelIdentity.key(channel) == selectedChannelKey, channelNumber(channel))",
+            "leer filas desde AsyncListDiffer")
+        text = replace_once(text,
+            "                channels.getOrNull(currentPosition)?.let { currentChannel ->",
+            "                differ.currentList.getOrNull(currentPosition)?.let { currentChannel ->",
+            "proteger clics ante actualización asíncrona")
+        text = replace_once(text, "    override fun getItemCount() = channels.size\n", "    override fun getItemCount() = differ.currentList.size\n", "consultar lista diferencial")
+        text = replace_once(text,
+            """    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {""",
+            """    override fun onBindViewHolder(holder: ViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.isNotEmpty() && payloads.all { it == PAYLOAD_SELECTION_STATE }) {
+            differ.currentList.getOrNull(position)?.let { channel ->
+                holder.updateSelection(
+                    channel,
+                    ChannelIdentity.key(channel) == selectedChannelKey,
+                    channelNumber(channel)
+                )
+            }
+            return
+        }
+        onBindViewHolder(holder, position)
+    }
+
+    companion object {
+        private const val PAYLOAD_SELECTION_STATE = "selection_state"
+    }
+
+    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {""",
+            "actualizar selección mediante payload")
+        text = replace_once(text,
+            """            itemView.isSelected = isSelected
+            marker.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
+            name.text = channel.name
+            optionsIndicator.visibility = if (!channel.options.isNullOrEmpty()) View.VISIBLE else View.GONE
+            itemView.setBackgroundResource(
+                if (isSelected) R.drawable.side_channel_item_selected
+                else R.drawable.side_channel_item_bg
+            )
+            itemView.contentDescription = buildString {
+                if (channelNumber > 0) append("Canal $channelNumber: ")
+                append(channel.name)
+                if (!channel.options.isNullOrEmpty()) append(", con opciones")
+                if (isSelected) append(", en reproducción")
+            }
+            // Mantiene la forma original de cada logo; el elemento no agrega una tarjeta detrás.
+            logo.loadChannelLogo(channel.name, channel.logo)
+        }
+""",
+            """            name.text = channel.name
+            optionsIndicator.visibility = if (!channel.options.isNullOrEmpty()) View.VISIBLE else View.GONE
+            updateSelection(channel, isSelected, channelNumber)
+            // Mantiene la forma original de cada logo; el elemento no agrega una tarjeta detrás.
+            logo.loadChannelLogo(channel.name, channel.logo)
+        }
+
+        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {
+            itemView.isSelected = isSelected
+            marker.visibility = if (isSelected) View.VISIBLE else View.INVISIBLE
+            itemView.setBackgroundResource(
+                if (isSelected) R.drawable.side_channel_item_selected
+                else R.drawable.side_channel_item_bg
+            )
+            itemView.contentDescription = buildString {
+                if (channelNumber > 0) append("Canal $channelNumber: ")
+                append(channel.name)
+                if (!channel.options.isNullOrEmpty()) append(", con opciones")
+                if (isSelected) append(", en reproducción")
+            }
+        }
+""", "reutilizar render de selección")
+
+
     elif name == "app/src/main/java/com/angulismotv/ui/ChannelCategoryBarController.kt":
         text = replace_once(text, "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n", "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n    private var availableCountryKeys: List<String> = emptyList()\n", "guardar países preparados")
         text = replace_once(text, "        selectedCategoryFocusViewId = View.NO_ID\n    }\n\n    fun render() {\n        val categories = ChannelFilterEngine.availableCategories(getChannels())\n", "        selectedCategoryFocusViewId = View.NO_ID\n        availableCountryKeys = emptyList()\n    }\n\n    fun render(\n        preparedCategories: List<Pair<String, String>>? = null,\n        preparedCountries: List<String>? = null\n    ) {\n        val categories = (preparedCategories ?: ChannelFilterEngine.availableCategories(getChannels()))\n", "render categorías preparadas")
