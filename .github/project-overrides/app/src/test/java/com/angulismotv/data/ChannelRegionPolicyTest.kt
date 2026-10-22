@@ -26,7 +26,11 @@ class ChannelRegionPolicyTest {
             Channel(name = "BBC News", country = "gb"),
             Channel(name = "France 24 English", country = "fr"),
             Channel(name = "NHK World Japan", country = "jp"),
-            Channel(name = "DW Español", country = "de")
+            Channel(name = "DW Español", country = "de"),
+            Channel(name = "Discovery Channel", country = "gb"),
+            Channel(name = "Cartoon Network", country = "fr"),
+            Channel(name = "Eurosport 1", country = "de"),
+            Channel(name = "MTV Europe", country = "de")
         )
         assertEquals(channels.size, ChannelRegionPolicy.filter(channels).size)
     }
