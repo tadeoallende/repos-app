@@ -42,6 +42,44 @@ jobs:
           fi
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
+      - name: Inspeccionar fuentes reales de IU (diagnóstico temporal)
+        run: |
+          mkdir -p ui-source
+          python3 - "$PROJECT_DIR" <<'PY'
+          from pathlib import Path
+          import sys, zipfile
+          root = Path(sys.argv[1])
+          wanted = [
+              "app/src/main/java/com/angulismotv/MainActivity.kt",
+              "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt",
+              "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt",
+              "app/src/main/java/com/angulismotv/ui/PlayerChannelPanelController.kt",
+              "app/src/main/java/com/angulismotv/ui/ChannelScreenLayoutController.kt",
+              "app/src/main/java/com/angulismotv/ui/PlayerControlsLayoutController.kt",
+              "app/src/main/res/layout/activity_main.xml",
+              "app/src/main/res/layout-v22/activity_main.xml",
+              "app/src/main/res/layout/fragment_channels_tv.xml",
+              "app/src/main/res/layout-v22/fragment_channels_tv.xml",
+              "app/src/main/res/layout/fragment_channels.xml",
+              "app/src/main/res/layout-v22/fragment_channels.xml",
+              "app/src/main/res/drawable/side_menu_bg.xml",
+              "app/src/main/res/drawable/side_menu_item_bg.xml",
+              "app/src/main/res/color/bottom_nav_color.xml",
+          ]
+          with zipfile.ZipFile("ui-source-inspection.zip", "w", zipfile.ZIP_DEFLATED) as z:
+              for rel in wanted:
+                  path = root / rel
+                  if path.is_file():
+                      z.write(path, rel)
+                      print("included", rel)
+                  else:
+                      print("missing", rel)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ui-source-inspection
+          path: ui-source-inspection.zip
+          if-no-files-found: error
 
       - uses: actions/setup-java@v4
         with:
