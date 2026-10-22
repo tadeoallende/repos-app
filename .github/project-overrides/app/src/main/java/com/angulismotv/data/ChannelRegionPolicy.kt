@@ -24,7 +24,11 @@ object ChannelRegionPolicy {
                 countryLocale.getDisplayCountry(spanish),
                 code
             ).filter(String::isNotBlank).map(::normalize)
-        }.toSet() + setOf("usa", "eeuu", "estados unidos", "estados unidos de america", "brasil", "mexico")
+        }.toSet() + setOf(
+            "usa", "eeuu", "estados unidos", "estados unidos de america",
+            "united states", "united states of america", "canada", "argentina",
+            "brasil", "brazil", "mexico", "mexico", "méxico"
+        )
     }
 
     private val internationalNetworkPatterns = listOf(
