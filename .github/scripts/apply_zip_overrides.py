@@ -188,10 +188,199 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
     private fun showState""", "esperar la preparación asíncrona del catálogo")
 
+        text = replace_once(text,
+            "    private fun generateCategoriesFromChannels(channels: List<Channel>) {\n        if (channels.isEmpty()) return\n",
+            "    private fun generateCategoriesFromChannels(channels: List<Channel>) {\n        if (channels.isEmpty()) return\n        if (isTV) {\n            applyFiltersAndUpdate { restoreLastActiveChannel(channels) }\n            return\n        }\n",
+            "mostrar todos los canales en la pantalla principal de TV")
+
+        text = replace_once(text,
+            """        ).also { it.attach() }
+    }
+
+    /** Opens/closes the search field from the shared header (mobile and Android TV). */""",
+            """        ).also { it.attach() }
+        if (isTV) {
+            view?.findViewById<View>(R.id.tv_inline_search_button)?.setOnClickListener {
+                toggleSearchFromHeader()
+            }
+        }
+    }
+
+    /** Opens/closes the search field from the shared header (mobile and Android TV). */""",
+            "conectar el buscador integrado en el reproductor")
+
+        text = replace_once(text,
+            """            val opening = !isSearchVisible
+            toggleSearch()
+            if (opening) {
+                searchInput.requestFocus()
+            } else {
+                activity?.findViewById<View>(R.id.header_search_button)?.requestFocus()
+            }""",
+            """            val opening = !isSearchVisible
+            toggleSearch()
+            view?.findViewById<View>(R.id.tv_inline_search_button)?.visibility =
+                if (opening) View.GONE else View.VISIBLE
+            if (::channelsAdapter.isInitialized) {
+                channelsAdapter.setCategoryFocusTarget(
+                    if (opening) R.id.search_input else R.id.tv_inline_search_button
+                )
+            }
+            if (opening) {
+                searchInput.requestFocus()
+            } else {
+                val playerSearchButton = view?.findViewById<View>(R.id.tv_inline_search_button)
+                if (playerSearchButton?.requestFocus() != true) {
+                    activity?.findViewById<View>(R.id.header_search_button)?.requestFocus()
+                }
+            }""",
+            "mantener búsqueda y foco dentro del reproductor")
+
+        text = replace_once(text,
+            """        toggleSearch()
+        activity?.findViewById<View>(R.id.header_search_button)?.requestFocus()
+        return true""",
+            """        toggleSearch()
+        view?.findViewById<View>(R.id.tv_inline_search_button)?.visibility = View.VISIBLE
+        if (::channelsAdapter.isInitialized) channelsAdapter.setCategoryFocusTarget(R.id.tv_inline_search_button)
+        view?.findViewById<View>(R.id.tv_inline_search_button)?.requestFocus()
+        return true""",
+            "devolver el foco al buscador del reproductor al cerrar búsqueda")
+
+        text = replace_once(text,
+            "    private fun showInlinePlayer(channel: Channel, startPlayback: Boolean = true) {\n",
+            """    private fun rememberLastActiveChannel(channel: Channel) {
+        if (!isTV || !isAdded) return
+        requireContext().getSharedPreferences("angulismotv_playback", android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putString("last_channel_key", ChannelIdentity.key(channel))
+            .putString("last_channel_name", channel.name)
+            .putString("last_channel_logo", channel.logo)
+            .apply()
+    }
+
+    private fun restoreLastActiveChannel(channels: List<Channel>) {
+        if (!isTV || inlineChannel != null || !isAdded || channels.isEmpty()) return
+        val preferences = requireContext().getSharedPreferences(
+            "angulismotv_playback",
+            android.content.Context.MODE_PRIVATE
+        )
+        val savedKey = preferences.getString("last_channel_key", null)
+        val savedName = preferences.getString("last_channel_name", null).orEmpty()
+        val savedLogo = preferences.getString("last_channel_logo", null)
+        val lastChannel = channels.firstOrNull {
+            !savedKey.isNullOrBlank() && ChannelIdentity.key(it) == savedKey
+        } ?: channels.firstOrNull {
+            savedName.isNotBlank() && it.name.equals(savedName, ignoreCase = true) &&
+                (savedLogo.isNullOrBlank() || it.logo == savedLogo)
+        } ?: channels.firstOrNull {
+            savedName.isNotBlank() && it.name.equals(savedName, ignoreCase = true)
+        } ?: return
+        showInlinePlayer(lastChannel)
+    }
+
+    private fun showInlinePlayer(channel: Channel, startPlayback: Boolean = true) {""",
+            "recordar y recuperar el último canal activo")
+
+        text = replace_once(text,
+            "        inlineChannel = channel\n        inlineSourceIndex = 0\n",
+            "        inlineChannel = channel\n        rememberLastActiveChannel(channel)\n        inlineSourceIndex = 0\n",
+            "guardar el último canal al seleccionarlo")
+
+        text = replace_once(text,
+            "        inlineChannel = null\n        if (isTV && ::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)\n",
+            """        inlineChannel = null
+        if (isTV) {
+            requireContext().getSharedPreferences("angulismotv_playback", android.content.Context.MODE_PRIVATE)
+                .edit().clear().apply()
+            view?.findViewById<View>(R.id.tv_inline_search_button)?.visibility = View.VISIBLE
+            if (::channelsAdapter.isInitialized) channelsAdapter.setCategoryFocusTarget(R.id.tv_inline_search_button)
+        }
+        if (isTV && ::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)
+""",
+            "limpiar el último canal al cerrar expresamente el reproductor")
+
+        text = replace_once(text,
+            "        channelsSectionHeader.visibility = if (isTV) View.VISIBLE else View.GONE\n",
+            "        channelsSectionHeader.visibility = View.GONE\n",
+            "mantener oculta la cabecera de TV")
+
+        text = replace_once(text,
+            "            channelsRecycler.nextFocusLeftId = R.id.inline_player_container\n",
+            "            channelsRecycler.nextFocusLeftId = R.id.inline_player_container\n            channelsAdapter.setCategoryFocusTarget(R.id.tv_inline_search_button)\n",
+            "asignar el botón de búsqueda como destino de foco")
     elif name == "app/src/main/java/com/angulismotv/adapters/ChannelsAdapter.kt":
         text = replace_once(text, "if (isTV && itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "if (itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "notificar selección móvil")
         text = replace_once(text, "holder.itemView.isSelected = isTV && previewChannelKey == ChannelIdentity.key(channel)", "holder.itemView.isSelected = previewChannelKey == ChannelIdentity.key(channel)", "selección visual móvil")
         text = replace_once(text, "holder.itemView.isSelected = isTV && channel != null &&\n                previewChannelKey == ChannelIdentity.key(channel)", "holder.itemView.isSelected = channel != null && previewChannelKey == ChannelIdentity.key(channel)", "selección por payload")
+
+        text = replace_once(text,
+            """        if (isTV) {
+            // La lista es la columna más a la derecha. Consumir → evita que Android busque
+            // una vista no relacionada cuando no existe otra columna a la derecha.
+            holder.itemView.setOnKeyListener { _, keyCode, event ->
+                event.action == android.view.KeyEvent.ACTION_DOWN &&
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+            }
+        } else {
+            holder.itemView.setOnKeyListener(null)
+        }""",
+            """        if (isTV) {
+            holder.itemView.setOnKeyListener { focusedRow, keyCode, event ->
+                if (event.action != android.view.KeyEvent.ACTION_DOWN) {
+                    false
+                } else when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> true
+                    android.view.KeyEvent.KEYCODE_DPAD_UP,
+                    android.view.KeyEvent.KEYCODE_DPAD_DOWN -> {
+                        val currentPosition = holder.bindingAdapterPosition
+                        val count = differ.currentList.size
+                        if (currentPosition == RecyclerView.NO_POSITION || count == 0) {
+                            true
+                        } else {
+                            val delta = if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_DOWN) 1 else -1
+                            val targetPosition = currentPosition + delta
+                            if (targetPosition < 0) {
+                                false
+                            } else if (targetPosition >= count) {
+                                true
+                            } else {
+                                val recycler = focusedRow.parent as? RecyclerView
+                                if (recycler != null) {
+                                    val target = recycler.findViewHolderForAdapterPosition(targetPosition)?.itemView
+                                    val fullyVisible = target != null &&
+                                        target.top >= recycler.paddingTop &&
+                                        target.bottom <= recycler.height - recycler.paddingBottom
+                                    if (fullyVisible) {
+                                        target?.requestFocus()
+                                    } else {
+                                        val layoutManager = recycler.layoutManager as?
+                                            androidx.recyclerview.widget.LinearLayoutManager
+                                        val rowHeight = focusedRow.height.takeIf { it > 0 } ?: 1
+                                        val offset = if (delta > 0) {
+                                            (recycler.height - recycler.paddingBottom - rowHeight)
+                                                .coerceAtLeast(recycler.paddingTop)
+                                        } else recycler.paddingTop
+                                        layoutManager?.scrollToPositionWithOffset(targetPosition, offset)
+                                        recycler.post {
+                                            recycler.post {
+                                                recycler.findViewHolderForAdapterPosition(targetPosition)
+                                                    ?.itemView?.requestFocus()
+                                            }
+                                        }
+                                    }
+                                }
+                                true
+                            }
+                        }
+                    }
+                    else -> false
+                }
+            }
+        } else {
+            holder.itemView.setOnKeyListener(null)
+        }""",
+            "estabilizar foco con pulsación prolongada en lista TV")
 
     elif name == "app/src/main/java/com/angulismotv/ui/InlinePlayerPresentationController.kt":
         text = replace_once(text, "        inlinePlayerContainer.visibility = View.VISIBLE\n        if (!isTV()) {\n", "        inlinePlayerContainer.visibility = View.VISIBLE\n        tvPlayerEmptyState?.visibility = View.GONE\n        if (!isTV()) {\n", "ocultar placeholder al seleccionar")
@@ -794,6 +983,12 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 """, "reutilizar render de selección")
 
 
+    elif name == "app/src/main/java/com/angulismotv/ui/ChannelScreenLayoutController.kt":
+        text = replace_once(text,
+            "        channelsSectionHeader.visibility = View.VISIBLE\n        channelsSearchContainer.visibility = View.GONE\n        onSearchVisibilityChanged(false)\n",
+            "        channelsSectionHeader.visibility = View.GONE\n        channelsSearchContainer.visibility = View.GONE\n        categoriesScroll.visibility = View.GONE\n        searchInput.nextFocusUpId = com.angulismotv.R.id.tv_inline_search_button\n        searchInput.nextFocusLeftId = com.angulismotv.R.id.tv_inline_search_button\n        searchInput.nextFocusDownId = com.angulismotv.R.id.channels_recycler\n        channelsRecycler.nextFocusUpId = com.angulismotv.R.id.tv_inline_search_button\n        channelsRecycler.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS\n        onSearchVisibilityChanged(false)\n",
+            "ocultar categorías de pantalla TV y enlazar foco del buscador")
+
     elif name == "app/src/main/java/com/angulismotv/ui/ChannelCategoryBarController.kt":
         text = replace_once(text, "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n", "    private var selectedCategoryFocusViewId: Int = View.NO_ID\n    private var availableCountryKeys: List<String> = emptyList()\n", "guardar países preparados")
         text = replace_once(text, "        selectedCategoryFocusViewId = View.NO_ID\n    }\n\n    fun render() {\n        val categories = ChannelFilterEngine.availableCategories(getChannels())\n", "        selectedCategoryFocusViewId = View.NO_ID\n        availableCountryKeys = emptyList()\n    }\n\n    fun render(\n        preparedCategories: List<Pair<String, String>>? = null,\n        preparedCountries: List<String>? = null\n    ) {\n        val categories = (preparedCategories ?: ChannelFilterEngine.availableCategories(getChannels()))\n", "render categorías preparadas")
@@ -813,6 +1008,12 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
                 tokens.any { token -> token.startsWith(term) || (term.length >= 3 && token.contains(term)) }
             } || searchableText.replace(" ", "").contains(compactQuery)
 ''', "buscar por prefijos y fragmentos")
+
+    elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
+        text = replace_once(text,
+            "            currentChannelIndex = index\n            currentChannel = channel\n            loadChannelInfo(currentChannel!!)\n",
+            "            currentChannelIndex = index\n            currentChannel = channel\n            getSharedPreferences(\"angulismotv_playback\", MODE_PRIVATE).edit()\n                .putString(\"last_channel_key\", ChannelIdentity.key(channel))\n                .putString(\"last_channel_name\", channel.name)\n                .putString(\"last_channel_logo\", channel.logo)\n                .apply()\n            loadChannelInfo(currentChannel!!)\n",
+            "recordar el último canal en fullscreen")
 
     elif name == "app/src/main/java/com/angulismotv/MainActivity.kt":
         text = replace_once(text,
@@ -892,6 +1093,72 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
 '''
         text = replace_once(text, marker, placeholder + marker, "placeholder del mini reproductor")
+
+    elif name == "app/src/main/res/layout/fragment_channels_tv.xml":
+        import xml.etree.ElementTree as ET
+        android_ns = "{http://schemas.android.com/apk/res/android}"
+        app_ns = "{http://schemas.android.com/apk/res-auto}"
+        ET.register_namespace("android", android_ns[1:-1])
+        ET.register_namespace("app", app_ns[1:-1])
+        root = ET.fromstring(text)
+
+        def by_id(view_id: str):
+            suffix = "/" + view_id
+            return next((node for node in root.iter()
+                         if node.get(android_ns + "id", "").endswith(suffix)), None)
+
+        player_column = by_id("tv_player_column")
+        player = by_id("inline_player_container")
+        panel = by_id("tv_channels_panel")
+        categories = by_id("categories_scroll")
+        search = by_id("channels_search_container")
+        header = by_id("channels_section_header")
+        if not all((player_column, player, panel, categories, search, header)):
+            raise RuntimeError("No se pudieron localizar todos los componentes del layout Android TV.")
+
+        player_column.set(android_ns + "layout_weight", "2.15")
+        panel.set(android_ns + "layout_weight", "1")
+        panel.set(android_ns + "paddingTop", "4dp")
+        header.set(android_ns + "visibility", "gone")
+        categories.set(android_ns + "visibility", "gone")
+
+        if search in list(panel):
+            panel.remove(search)
+        search.set(android_ns + "layout_width", "320dp")
+        search.set(android_ns + "layout_height", "wrap_content")
+        search.set(android_ns + "layout_gravity", "top|end")
+        search.set(android_ns + "layout_marginTop", "12dp")
+        search.set(android_ns + "layout_marginEnd", "12dp")
+        search.set(android_ns + "visibility", "gone")
+        search.set(android_ns + "elevation", "9dp")
+
+        search_button = by_id("tv_inline_search_button")
+        if search_button is None:
+            search_button = ET.Element("ImageButton", {
+                android_ns + "id": "@+id/tv_inline_search_button",
+                android_ns + "layout_width": "44dp",
+                android_ns + "layout_height": "44dp",
+                android_ns + "layout_gravity": "top|end",
+                android_ns + "layout_marginTop": "12dp",
+                android_ns + "layout_marginEnd": "12dp",
+                android_ns + "background": "@drawable/bg_inline_player_control",
+                android_ns + "contentDescription": "Buscar canales",
+                android_ns + "focusable": "true",
+                android_ns + "focusableInTouchMode": "true",
+                android_ns + "clickable": "true",
+                android_ns + "elevation": "6dp",
+                android_ns + "nextFocusDown": "@id/channels_recycler",
+                android_ns + "nextFocusRight": "@id/channels_recycler",
+                android_ns + "nextFocusLeft": "@id/inline_player_container",
+                android_ns + "src": "@drawable/ic_search",
+                app_ns + "tint": "@color/text_primary"
+            })
+            player.append(search_button)
+        if search not in list(player):
+            player.append(search)
+
+        text = ET.tostring(root, encoding="unicode", xml_declaration=True)
+
 
     return text.encode("utf-8")
 
