@@ -193,7 +193,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "    private fun generateCategoriesFromChannels(channels: List<Channel>) {\n        if (channels.isEmpty()) return\n        if (isTV) {\n            applyFiltersAndUpdate { restoreLastActiveChannel(channels) }\n            return\n        }\n",
             "mostrar todos los canales en la pantalla principal de TV")
 
-        if ("openPlayerPanelShortcut(openSearch = true)" !in text) {
+        if "openPlayerPanelShortcut(openSearch = true)" not in text:
             text = replace_once(text,
                 """        ).also { it.attach() }
     }
