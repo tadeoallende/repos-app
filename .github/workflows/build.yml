@@ -5,6 +5,8 @@ on:
     paths:
       - '*.zip'
       - '.github/workflows/build.yml'
+      - '.github/project-overrides/**'
+      - '.github/scripts/apply_zip_overrides.py'
   workflow_dispatch:
 
 permissions:
@@ -15,20 +17,29 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
+      ORG_GRADLE_PROJECT_IPTV_ORG_URL: ${{ secrets.IPTV_ORG_URL }}
       ORG_GRADLE_PROJECT_CHANNELS_URL: ${{ secrets.CHANNELS_URL }}
       ORG_GRADLE_PROJECT_EVENTS_URL: ${{ secrets.EVENTS_URL }}
+      ORG_GRADLE_PROJECT_CUSTOM_CHANNELS_URL: ${{ secrets.CUSTOM_CHANNELS_URL }}
       ORG_GRADLE_PROJECT_UPDATE_URL: ${{ secrets.UPDATE_URL }}
       ORG_GRADLE_PROJECT_WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Descomprimir proyecto
+      - name: Aplicar cambios sobre el ZIP base
         run: |
+          set -euo pipefail
           ZIP="$(ls *.zip | head -1)"
           echo "Usando: $ZIP"
+          python3 .github/scripts/apply_zip_overrides.py "$ZIP"
+          echo "SOURCE_ZIP=$ZIP" >> "$GITHUB_ENV"
           unzip -q -o "$ZIP" -d proyecto
           SETTINGS="$(find proyecto -name settings.gradle.kts | head -1)"
+          if [ -z "$SETTINGS" ]; then
+            echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
+            exit 1
+          fi
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
@@ -46,11 +57,16 @@ jobs:
         with:
           build-root-directory: ${{ env.PROJECT_DIR }}
 
+      - name: Pruebas unitarias
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+
       - name: Compilar debug
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
           set -o pipefail
-          chmod +x gradlew
           ./gradlew assembleDebug --stacktrace 2>&1 | tee "$GITHUB_WORKSPACE/build.log"
 
       - name: Compilar release (prueba R8)
@@ -58,6 +74,21 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+
+      - name: Guardar ZIP actualizado en la rama
+        if: success() && github.event_name != 'pull_request'
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- "$SOURCE_ZIP"
+          if git diff --cached --quiet; then
+            echo "El ZIP ya estaba actualizado."
+            exit 0
+          fi
+          git commit -m "build: persist updated AngulismoTV ZIP [skip ci]"
+          BRANCH="$(git branch --show-current)"
+          git push origin "HEAD:$BRANCH"
 
       - name: Guardar APK para las pruebas
         uses: actions/upload-artifact@v4
@@ -67,6 +98,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publicar APK en Releases
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -80,13 +112,10 @@ jobs:
         if: failure()
         run: |
           {
-            echo '## Errores de compilación'
-            echo '```'
+            echo 'Errores relevantes de compilación:'
             grep -E '^e: |What went wrong|Execution failed|error:' -A4 "$GITHUB_WORKSPACE/build.log" | head -150
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
-  # Abre la app en un emulador de Android y muestra el error si se cierra
   probar-en-emulador:
     needs: build
     runs-on: ubuntu-latest
@@ -136,20 +165,16 @@ jobs:
         if: always()
         run: |
           {
-            echo "## Prueba en emulador (Android API ${{ matrix.api }})"
+            echo "Prueba en emulador (Android API ${{ matrix.api }})"
             if [ -s pid.txt ]; then
               echo "La app sigue abierta después de 20 segundos."
             else
-              echo "**La app NO está en ejecución: se cerró.**"
+              echo "La app NO está en ejecución: se cerró."
             fi
-            echo '### Error (FATAL EXCEPTION)'
-            echo '```'
+            echo 'Error FATAL EXCEPTION'
             grep -A30 "FATAL EXCEPTION" full.log | head -80 || true
-            echo '```'
-            echo '### Otras líneas de la app'
-            echo '```'
+            echo 'Otras líneas de la app'
             grep -E "angulismotv|AndroidRuntime" full.log | head -40 || true
-            echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar capturas y log
