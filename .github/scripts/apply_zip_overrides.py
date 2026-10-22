@@ -1251,8 +1251,6 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         panel.set(android_ns + "background", "@android:color/transparent")
         panel.set(android_ns + "elevation", "0dp")
         panel.attrib.pop(android_ns + "backgroundTint", None)
-        channels_list.set(android_ns + "background", "@android:color/transparent")
-        channels_list.attrib.pop(android_ns + "backgroundTint", None)
         header.set(android_ns + "visibility", "gone")
         categories.set(android_ns + "visibility", "gone")
 
