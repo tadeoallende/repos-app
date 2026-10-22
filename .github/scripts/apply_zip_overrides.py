@@ -280,7 +280,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         }
     }
 """
-        text = replace_once(text, old_catalog, new_catalog, "preparar catálogo del panel en segundo plano")
+        if old_catalog in text:
+            text = replace_once(text, old_catalog, new_catalog, "preparar catálogo del panel en segundo plano")
+        elif "val requestGeneration = ++catalogGeneration" not in text or "preparedCatalog = null" not in text:
+            raise RuntimeError("No se pudo aplicar preparar catálogo del panel en segundo plano: el código base no coincide.")
 
         old_categories = """    private fun updateCategoriesList() {
         val channels = getChannels()
@@ -306,7 +309,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         // The category labels and counts were prepared once off the UI thread for this catalogue.
         val items = preparedCategoryItems
 """
-        text = replace_once(text, old_categories, new_categories, "reutilizar metadatos de categorías")
+        if old_categories in text:
+            text = replace_once(text, old_categories, new_categories, "reutilizar metadatos de categorías")
+        elif "val items = preparedCategoryItems" not in text:
+            raise RuntimeError("No se pudo aplicar reutilizar metadatos de categorías: el código base no coincide.")
 
         old_list = """    private fun updateChannelsList(scrollToSelected: Boolean = false) {
         if (!isReady) return
@@ -363,7 +369,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         }
     }
 """
-        text = replace_once(text, old_list, new_list, "filtrar canales del panel fuera del hilo visual")
+        if old_list in text:
+            text = replace_once(text, old_list, new_list, "filtrar canales del panel fuera del hilo visual")
+        elif "onUpdated: (() -> Unit)? = null" not in text or "sideChannelsAdapter.submitList(result, selectedIndex) {" not in text:
+            raise RuntimeError("No se pudo aplicar filtrar canales del panel fuera del hilo visual: el código base no coincide.")
 
         old_after = """            override fun afterTextChanged(s: Editable?) {
                 val query = s?.toString()?.trim()?.lowercase(Locale.ROOT).orEmpty()
@@ -638,6 +647,15 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "usar índice O(1) al elegir resultado de búsqueda")
 
     elif name == "app/src/main/java/com/angulismotv/adapters/SideChannelsAdapter.kt":
+        # If the side adapter was already transformed in an earlier CI run, skip its one-time
+        # structural rewrite and only apply the tiny selection-number correction if still needed.
+        if "private val differ = AsyncListDiffer(this, object : DiffUtil.ItemCallback<Channel>() {" in text:
+            text = text.replace(
+                "        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {\n            itemView.isSelected = isSelected",
+                "        fun updateSelection(channel: Channel, isSelected: Boolean, channelNumber: Int) {\n            number.text = if (channelNumber > 0) channelNumber.toString() else \\"—\\"\\n            itemView.isSelected = isSelected",
+                1
+            )
+            return text.encode("utf-8")
         text = replace_once(text,
             "import androidx.recyclerview.widget.DiffUtil\n",
             "import androidx.recyclerview.widget.AsyncListDiffer\nimport androidx.recyclerview.widget.DiffUtil\n",
