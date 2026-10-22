@@ -1,12 +1,17 @@
 package com.angulismotv.data
 
+import android.content.Context
 import android.util.Log
 import com.angulismotv.BuildConfig
 import com.angulismotv.models.Channel
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.IOException
 
 /** Result of loading the configured feeds. */
 data class LoadResult(
@@ -23,6 +28,9 @@ data class LoadResult(
 object ChannelRepository {
     private val iptvOrgDataSource by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { IptvOrgDataSource() }
     private val fallbackDataSource by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { ChannelFeedDataSource() }
+    private val gson by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { Gson() }
+    private val cacheType = object : TypeToken<List<Channel>>() {}.type
+    private const val CACHE_FILE = "channel_catalog_cache.json"
 
     private data class SourceLoad(
         val url: String,
@@ -30,7 +38,18 @@ object ChannelRepository {
         val channels: List<Channel>
     )
 
-    suspend fun loadAll(): LoadResult = coroutineScope {
+    /** Devuelve el último catálogo bueno guardado localmente para evitar una pantalla vacía al arrancar. */
+    suspend fun loadCached(context: Context): LoadResult? = withContext(Dispatchers.IO) {
+        runCatching {
+            val file = File(context.applicationContext.filesDir, CACHE_FILE)
+            if (!file.isFile || file.length() <= 2L) return@runCatching null
+            val channels: List<Channel> = gson.fromJson(file.readText(Charsets.UTF_8), cacheType)
+                ?: return@runCatching null
+            channels.takeIf { it.isNotEmpty() }?.let { LoadResult(it, sourceName = "Caché local") }
+        }.onFailure { Log.w(TAG, "No se pudo leer la caché local (" + it.javaClass.simpleName + ")") }.getOrNull()
+    }
+
+    suspend fun loadAll(context: Context? = null): LoadResult = coroutineScope {
         // Fetch the regional catalogue and user-maintained feed concurrently.
         val primaryDeferred = async { loadPrimarySource() }
         val personalDeferred = async { loadPersonalSource() }
@@ -41,7 +60,8 @@ object ChannelRepository {
             val merged = withContext(Dispatchers.Default) {
                 (primary.channels + personal.channels).distinctChannels()
             }
-            Log.i(TAG, "Canales cargados: IPTV-org=${primary.channels.size}, propios=${personal.channels.size}")
+            if (context != null && merged.isNotEmpty()) saveCache(context, merged)
+            Log.i(TAG, "Canales cargados: IPTV-org=" + primary.channels.size + ", propios=" + personal.channels.size)
             return@coroutineScope LoadResult(
                 channels = merged,
                 partialFailure = personal.url.isNotBlank() && personal.result.isFailure,
@@ -50,7 +70,7 @@ object ChannelRepository {
         }
 
         logPrimarySourceFailure(primary)
-        loadFallbackSources(primary, personal)
+        loadFallbackSources(primary, personal, context)
     }
 
     private suspend fun loadPrimarySource(): SourceLoad {
@@ -83,7 +103,7 @@ object ChannelRepository {
         }
     }
 
-    private suspend fun loadFallbackSources(primary: SourceLoad, personal: SourceLoad): LoadResult = coroutineScope {
+    private suspend fun loadFallbackSources(primary: SourceLoad, personal: SourceLoad, context: Context?): LoadResult = coroutineScope {
         val channelsUrl = BuildConfig.CHANNELS_URL.trim()
         val eventsUrl = BuildConfig.EVENTS_URL.trim()
         val direct = async { fallbackDataSource.load(channelsUrl, defaultCategory = "todos") }
@@ -93,6 +113,7 @@ object ChannelRepository {
         val channels = withContext(Dispatchers.Default) {
             (legacyChannels + personal.channels).distinctChannels()
         }
+        if (context != null && channels.isNotEmpty()) saveCache(context, channels)
         val legacyFailure = (channelsUrl.isNotBlank() && results[0].isFailure) ||
             (eventsUrl.isNotBlank() && results[1].isFailure)
         val primaryFailed = primary.url.isNotBlank() && primary.result.isFailure
@@ -112,6 +133,17 @@ object ChannelRepository {
                 else -> null
             }
         )
+    }
+
+    private suspend fun saveCache(context: Context, channels: List<Channel>) = withContext(Dispatchers.IO) {
+        runCatching {
+            val directory = context.applicationContext.filesDir
+            val target = File(directory, CACHE_FILE)
+            val temporary = File(directory, "$CACHE_FILE.tmp")
+            temporary.writeText(gson.toJson(channels, cacheType), Charsets.UTF_8)
+            if (target.exists() && !target.delete()) throw IOException("No se pudo reemplazar la caché anterior")
+            if (!temporary.renameTo(target)) throw IOException("No se pudo guardar la caché de canales")
+        }.onFailure { Log.w(TAG, "No se pudo guardar la caché local (" + it.javaClass.simpleName + ")") }
     }
 
     private fun List<Channel>.distinctChannels(): List<Channel> =
