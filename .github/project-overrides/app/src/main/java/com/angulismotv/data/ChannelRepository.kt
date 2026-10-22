@@ -35,7 +35,8 @@ object ChannelRepository {
     private data class SourceLoad(
         val url: String,
         val result: Result<List<Channel>>,
-        val channels: List<Channel>
+        val channels: List<Channel>,
+        val name: String = ""
     )
 
     /** Lee y recupera el último catálogo bueno guardado localmente, sin copiar el JSON entero a memoria. */
@@ -79,7 +80,7 @@ object ChannelRepository {
             return@coroutineScope LoadResult(
                 channels = merged,
                 partialFailure = personal.url.isNotBlank() && personal.result.isFailure,
-                sourceName = if (personal.channels.isNotEmpty()) remoteSourceLabel(primary.url) + " + canales propios" else remoteSourceLabel(primary.url)
+                sourceName = if (personal.channels.isNotEmpty()) primary.name + " + canales propios" else primary.name
             )
         }
 
@@ -99,7 +100,7 @@ object ChannelRepository {
             } else parsed
             regional.distinctChannels()
         }
-        return SourceLoad(url, result, scoped)
+        return SourceLoad(url, result, scoped, remoteSource.name)
     }
 
     private suspend fun loadPersonalSource(): SourceLoad {
@@ -109,9 +110,6 @@ object ChannelRepository {
         val channels = withContext(Dispatchers.Default) { result.getOrDefault(emptyList()).distinctChannels() }
         return SourceLoad(url, result, channels)
     }
-
-    private fun remoteSourceLabel(url: String): String =
-        if (url.isBlank()) "Fuente principal desactivada" else "Fuente principal"
 
     private fun logPrimarySourceFailure(primary: SourceLoad) {
         if (primary.result.isFailure) {
