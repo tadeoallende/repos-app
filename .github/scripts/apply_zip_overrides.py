@@ -1356,7 +1356,7 @@ def apply_ui_redesign(name: str, text: str) -> str:
             button.attrib.update(attrs)
             button.attrib.pop(android_ns + "layout_gravity", None)
 
-        configure_action_button(channels_button, "tv_inline_channels_button", "Abrir lista de canales", "@drawable/ic_channels")
+        configure_action_button(channels_button, "tv_inline_channels_button", "Abrir lista de canales", "@drawable/ic_menu")
         configure_action_button(search_button, "tv_inline_search_button", "Buscar canales", "@drawable/ic_search")
         action_row.append(channels_button)
         action_row.append(search_button)
