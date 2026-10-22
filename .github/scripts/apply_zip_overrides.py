@@ -1367,12 +1367,17 @@ def apply_ui_redesign(name: str, text: str) -> str:
                 node.set(android_ns + "visibility", "gone")
 
         # La lista derecha queda sin cabecera ni bloque de instrucciones; las flechas son solo visuales.
+        arrows = {}
         for view_id, symbol in (("tv_channels_scroll_up", "▲"), ("tv_channels_scroll_down", "▼")):
             arrow = by_id(view_id)
             if arrow is None:
                 arrow = ET.Element("TextView", {
                     android_ns + "id": "@+id/" + view_id
                 })
+            for parent in root.iter():
+                if arrow in list(parent):
+                    parent.remove(arrow)
+                    break
             arrow.attrib.update({
                 android_ns + "layout_width": "match_parent",
                 android_ns + "layout_height": "18dp",
@@ -1385,13 +1390,10 @@ def apply_ui_redesign(name: str, text: str) -> str:
                 android_ns + "clickable": "false",
                 android_ns + "importantForAccessibility": "no"
             })
-            for parent in root.iter():
-                if arrow in list(parent):
-                    parent.remove(arrow)
-                    break
+            arrows[view_id] = arrow
 
-        up_arrow = by_id("tv_channels_scroll_up")
-        down_arrow = by_id("tv_channels_scroll_down")
+        up_arrow = arrows["tv_channels_scroll_up"]
+        down_arrow = arrows["tv_channels_scroll_down"]
         channels_panel.insert(list(channels_panel).index(channels_list), up_arrow)
         channels_panel.insert(list(channels_panel).index(channels_list) + 1, down_arrow)
 
