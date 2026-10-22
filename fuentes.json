@@ -1,8 +1,8 @@
 {
   "version": 1,
   "fuentePrincipal": {
-    "habilitada": true,
-    "nombre": "Canales propios",
-    "url": "https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json"
+    "habilitada": false,
+    "nombre": "Desactivada",
+    "url": ""
   }
 }
