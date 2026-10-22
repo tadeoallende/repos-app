@@ -3,6 +3,6 @@
   "fuentePrincipal": {
     "habilitada": true,
     "nombre": "IPTV-org",
-    "url": "https://iptv-org.github.io/iptv/index.m3u"
+    "url": "https://raw.githubusercontent.com/tadeoallende/canales-app/refs/heads/main/canales.json"
   }
 }
