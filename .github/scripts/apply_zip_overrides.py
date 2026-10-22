@@ -287,8 +287,8 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "        inlineChannel = channel\n        rememberLastActiveChannel(channel)\n        inlineSourceIndex = 0\n",
             "guardar el último canal al seleccionarlo")
 
-        // El ZIP queda persistido tras compilar. Permitir volver a ejecutar este parche
-        // aunque el código de cierre ya esté presente con una variante de selección normalizada.
+        # El ZIP queda persistido tras compilar. Permitir volver a ejecutar este parche
+        # aunque el código de cierre ya esté presente con una variante de selección normalizada.
         if '        inlineChannel = null\n        if (isTV) {\n            requireContext().getSharedPreferences("angulismotv_playback", android.content.Context.MODE_PRIVATE)\n                .edit().clear().apply()' not in text:
             text = replace_once(text,
                 "        inlineChannel = null\n        if (::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)\n",
