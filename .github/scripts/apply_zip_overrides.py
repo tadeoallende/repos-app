@@ -1311,13 +1311,21 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
                             norm_attr(node, "text") + " " +
                             norm_attr(node, "tooltipText")).lower()
                 return any(word in identity for word in ("favorite", "favourite", "favorito", "favoritos"))
-            # Quitar el control, no solo hacerlo invisible: así no queda su ancho ni su margen.
-            for parent in list(root.iter()):
-                for child in list(parent):
-                    if favorite_control(child) and child.tag.split("}")[-1] in (
-                        "Button", "ImageButton", "ImageView", "TextView", "MaterialButton"
-                    ):
-                        parent.remove(child)
+            # Conservar el ID para ViewBinding/Kotlin, pero colapsar el control por completo.
+            # GONE + tamaño cero elimina el espacio y evita que entre en la navegación por foco.
+            for node in root.iter():
+                if favorite_control(node) and node.tag.split("}")[-1] in (
+                    "Button", "ImageButton", "ImageView", "TextView", "MaterialButton"
+                ):
+                    node.set(android_ns + "visibility", "gone")
+                    node.set(android_ns + "layout_width", "0dp")
+                    node.set(android_ns + "layout_height", "0dp")
+                    node.set(android_ns + "minWidth", "0dp")
+                    node.set(android_ns + "minHeight", "0dp")
+                    node.set(android_ns + "padding", "0dp")
+                    node.set(android_ns + "clickable", "false")
+                    node.set(android_ns + "focusable", "false")
+                    node.set(android_ns + "focusableInTouchMode", "false")
             # El control de salida debe comunicar volver/salir, no cerrar algo ambiguo.
             for node in root.iter():
                 identity = (node.get(android_ns + "id", "") + " " +
