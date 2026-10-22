@@ -144,7 +144,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         }
     }
 '''
-        text = replace_once(text, old_categories, new_categories, "metadatos de categorías asíncronos")
+        if old_categories in text:
+            text = replace_once(text, old_categories, new_categories, "metadatos de categorías asíncronos")
+        elif "categoryMetadataJob = viewLifecycleOwner.lifecycleScope.launch" not in text:
+            raise RuntimeError("No se pudo aplicar metadatos de categorías asíncronos: el código base no coincide.")
         text = replace_once(text, "    private fun applyResult(result: LoadResult) {\n", "    private fun applyResult(result: LoadResult) {\n        filterGeneration++\n        filterJob?.cancel()\n        filterJob = null\n        categoryMetadataJob?.cancel()\n        categoryMetadataJob = null\n", "cancelar filtrado obsoleto")
         text = replace_once(text, "    private fun disposeViewControllers() {\n", "    private fun disposeViewControllers() {\n        filterGeneration++\n        filterJob?.cancel()\n        filterJob = null\n        categoryMetadataJob?.cancel()\n        categoryMetadataJob = null\n", "liberar trabajos del fragmento")
         text = replace_once(text,
