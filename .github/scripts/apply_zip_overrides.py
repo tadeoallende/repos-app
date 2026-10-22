@@ -1600,6 +1600,51 @@ def apply_ui_redesign(name: str, text: str) -> str:
     return text
 
 
+
+
+def _diagnose_archive_ui(name: str, raw: bytes) -> None:
+    """Temporary build-log inspection for TV focus, zapping and player HUD behavior."""
+    import re
+    relevant = (
+        "UnifiedPlayerActivity.kt", "ChannelsAdapter.kt", "MainActivity.kt",
+        "fragment_channels_tv.xml", "activity_main.xml"
+    )
+    if not any(name.endswith(item) for item in relevant):
+        return
+    try:
+        source = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return
+    lines = source.splitlines()
+    print(f"\\n===== UI-DIAG {name} ({len(lines)} lines) =====")
+    if name.endswith("UnifiedPlayerActivity.kt"):
+        pattern = re.compile(r"channel.?name|channel.?info|loadChannelInfo|currentChannel(Index)?|KEYCODE_DPAD_(UP|DOWN)|showControls|hideControls|overlay|hud|zap|nextChannel|previousChannel|translationY|alpha", re.I)
+    elif name.endswith("ChannelsAdapter.kt"):
+        pattern = re.compile(r"setTextColor|textColor|isSelected|previewChannelKey|setBackground|focus|selected|itemView", re.I)
+    elif name.endswith("MainActivity.kt"):
+        pattern = re.compile(r"menu_channels|menu_agenda|setOnFocusChangeListener|requestFocus|isSelected|selected|focused|setOnClickListener", re.I)
+    else:
+        pattern = re.compile(r"menu_channels|menu_agenda|channels_recycler|tv_channels_panel|focusable|background|textColor|tint|selected", re.I)
+    spans = []
+    for i, line in enumerate(lines):
+        if pattern.search(line):
+            start, end = max(0, i - 2), min(len(lines), i + 3)
+            if spans and start <= spans[-1][1] + 1:
+                spans[-1] = (spans[-1][0], max(spans[-1][1], end))
+            else:
+                spans.append((start, end))
+    budget = 210
+    for start, end in spans:
+        block = lines[start:end]
+        if len(block) > budget:
+            block = block[:budget]
+        for j, line in enumerate(block, start + 1):
+            print(f"UI-DIAG:{j}: {line}")
+        budget -= len(block)
+        if budget <= 0:
+            print("UI-DIAG: (recorte por límite de diagnóstico)")
+            break
+
 def main() -> int:
     if len(sys.argv) != 2:
         print("Uso: apply_zip_overrides.py <proyecto.zip>", file=sys.stderr)
@@ -1629,9 +1674,12 @@ def main() -> int:
         with zipfile.ZipFile(archive, "r") as source, zipfile.ZipFile(
             temp, "w", compression=zipfile.ZIP_DEFLATED
         ) as target:
+            ui_files = [info.filename for info in source.infolist() if info.filename.endswith((".xml", ".kt")) and any(token in info.filename.lower() for token in ("player", "channel", "menu", "agenda", "navigation", "mainactivity"))]
+            print("UI-DIAG files: " + " | ".join(ui_files[:100]))
             for info in source.infolist():
                 name = info.filename
                 data = overlays.get(name, source.read(name))
+                _diagnose_archive_ui(name, data)
                 data = apply_source_optimizations(name, data)
                 target.writestr(info, data)
                 if name in overlays:
