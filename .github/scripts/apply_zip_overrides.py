@@ -193,12 +193,13 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "    private fun generateCategoriesFromChannels(channels: List<Channel>) {\n        if (channels.isEmpty()) return\n        if (isTV) {\n            applyFiltersAndUpdate { restoreLastActiveChannel(channels) }\n            return\n        }\n",
             "mostrar todos los canales en la pantalla principal de TV")
 
-        text = replace_once(text,
-            """        ).also { it.attach() }
+        if ("openPlayerPanelShortcut(openSearch = true)" !in text) {
+            text = replace_once(text,
+                """        ).also { it.attach() }
     }
 
     /** Opens/closes the search field from the shared header (mobile and Android TV). */""",
-            """        ).also { it.attach() }
+                """        ).also { it.attach() }
         if (isTV) {
             view?.findViewById<View>(R.id.tv_inline_search_button)?.setOnClickListener {
                 toggleSearchFromHeader()
@@ -207,7 +208,8 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
     }
 
     /** Opens/closes the search field from the shared header (mobile and Android TV). */""",
-            "conectar el buscador integrado en el reproductor")
+                "conectar el buscador integrado en el reproductor")
+        }
 
         text = replace_once(text,
             """            val opening = !isSearchVisible
