@@ -536,6 +536,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         onBindViewHolder(holder, position)
     }
 
+    companion object {
+        private const val PAYLOAD_SELECTION_STATE = "selection_state"
+    }
+
     class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {""",
             "actualizar selección mediante payload")
         text = replace_once(text,
@@ -579,16 +583,6 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             }
         }
 """, "reutilizar render de selección")
-        text = replace_once(text,
-            """    // ✅ Limpiar recursos cuando el adapter se destruye
-    override fun onViewRecycled(holder: ViewHolder) {""",
-            """    companion object {
-        private const val PAYLOAD_SELECTION_STATE = "selection_state"
-    }
-
-    // ✅ Limpiar recursos cuando el adapter se destruye
-    override fun onViewRecycled(holder: ViewHolder) {""",
-            "añadir payload de selección")
 
 
         # Keep the channel-number index off main, skip TV-only work on mobile, and restore focus
