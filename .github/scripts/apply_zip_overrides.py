@@ -1011,7 +1011,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
     elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
         text = replace_once(text,
-            "            currentChannelIndex = index\n            currentChannel = channel\n            loadChannelInfo(currentChannel!!)\n",
+            "            currentChannelIndex = index\n            currentChannel = channel\n            loadChannelInfo(channel)\n",
             "            currentChannelIndex = index\n            currentChannel = channel\n            getSharedPreferences(\"angulismotv_playback\", MODE_PRIVATE).edit()\n                .putString(\"last_channel_key\", ChannelIdentity.key(channel))\n                .putString(\"last_channel_name\", channel.name)\n                .putString(\"last_channel_logo\", channel.logo)\n                .apply()\n            loadChannelInfo(currentChannel!!)\n",
             "recordar el último canal en fullscreen")
 
