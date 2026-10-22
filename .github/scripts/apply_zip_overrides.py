@@ -1163,8 +1163,251 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = ET.tostring(root, encoding="unicode", xml_declaration=True)
 
 
+    text = apply_ui_redesign(name, text)
     return text.encode("utf-8")
 
+
+def apply_ui_redesign(name: str, text: str) -> str:
+    """Apply the TV interface refinements after the existing ZIP overlays."""
+    if name == "app/src/main/java/com/angulismotv/MainActivity.kt":
+        old = """        // La búsqueda no ocupa espacio fijo en la lista: se abre desde este acceso de cabecera.
+        binding.headerSearchButton.visibility = View.VISIBLE"""
+        new = """        // En Android TV la búsqueda se abre desde el acceso bajo el reproductor.
+        binding.headerSearchButton.visibility = View.GONE
+        binding.headerSearchButton.isFocusable = false
+        binding.headerSearchButton.isFocusableInTouchMode = false"""
+        text = replace_once(text, old, new, "ocultar búsqueda de cabecera en TV")
+
+    elif name == "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt":
+        old_click = """        if (isTV) {
+            view?.findViewById<View>(R.id.tv_inline_search_button)?.setOnClickListener {
+                toggleSearchFromHeader()
+            }
+        }"""
+        new_click = """        if (isTV) {
+            view?.findViewById<View>(R.id.tv_inline_channels_button)?.apply {
+                isFocusable = true
+                isFocusableInTouchMode = true
+                setOnClickListener { openPlayerPanelShortcut(openSearch = false) }
+            }
+            view?.findViewById<View>(R.id.tv_inline_search_button)?.apply {
+                isFocusable = true
+                isFocusableInTouchMode = true
+                setOnClickListener { openPlayerPanelShortcut(openSearch = true) }
+            }
+        }"""
+        text = replace_once(text, old_click, new_click, "conectar accesos del panel de TV")
+
+        old_nav = """        inlinePlayerContainer.nextFocusLeftId = R.id.menu_channels
+        inlinePlayerContainer.nextFocusRightId = R.id.channels_recycler
+        inlinePlayerContainer.nextFocusUpId = R.id.header_search_button"""
+        new_nav = """        inlinePlayerContainer.nextFocusLeftId = R.id.menu_channels
+        inlinePlayerContainer.nextFocusRightId = R.id.channels_recycler
+        inlinePlayerContainer.nextFocusUpId = R.id.menu_channels
+        inlinePlayerContainer.nextFocusDownId = R.id.tv_inline_channels_button"""
+        text = replace_once(text, old_nav, new_nav, "actualizar navegación del foco desde el reproductor")
+
+        old_signature = "    private fun launchPlayerActivity(channel: Channel, fromInline: Boolean) {"
+        new_signature = """    private fun openPlayerPanelShortcut(openSearch: Boolean) {
+        if (!isTV || !isAdded) return
+        val channel = inlineChannel ?: originalChannels.firstOrNull {
+            !it.streamUrl.isNullOrBlank() || !it.options.isNullOrEmpty()
+        }
+        if (channel == null) {
+            Toast.makeText(requireContext(), "No hay canales disponibles para abrir el reproductor", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        // Solo transferir la sesión integrada si existe un canal ya seleccionado.
+        val reuseInlineSession = inlineChannel != null && ChannelIdentity.same(inlineChannel!!, channel)
+        launchPlayerActivity(
+            channel = channel,
+            fromInline = reuseInlineSession,
+            openChannelPanel = true,
+            openChannelSearch = openSearch
+        )
+    }
+
+    private fun launchPlayerActivity(
+        channel: Channel,
+        fromInline: Boolean,
+        openChannelPanel: Boolean = false,
+        openChannelSearch: Boolean = false
+    ) {"""
+        text = replace_once(text, old_signature, new_signature, "añadir acceso directo al panel del reproductor")
+
+        old_intent = "        val launchIntent = createPlayerLaunchIntent(channel, catalog, catalogToken, fromInline, handoff)"
+        new_intent = """        val launchIntent = createPlayerLaunchIntent(channel, catalog, catalogToken, fromInline, handoff)
+            .putExtra("open_channel_panel", openChannelPanel)
+            .putExtra("open_channel_search", openChannelSearch)"""
+        text = replace_once(text, old_intent, new_intent, "enviar destino inicial al reproductor")
+
+    elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
+        old = "        channelPanelController.setChannelCatalog(allChannels)"
+        new = """        channelPanelController.setChannelCatalog(allChannels)
+        if (isTV && intent.getBooleanExtra("open_channel_panel", false)) {
+            val openSearchOnStart = intent.getBooleanExtra("open_channel_search", false)
+            playerContainer.post {
+                if (isFinishing || isDestroyed || !isTV) return@post
+                openSidePanel()
+                if (openSearchOnStart) channelPanelController.activateSearchMode()
+            }
+        }"""
+        text = replace_once(text, old, new, "abrir panel o búsqueda según acceso de TV")
+
+    elif name == "app/src/main/res/layout/activity_main.xml":
+        import xml.etree.ElementTree as ET
+        android_ns = "{http://schemas.android.com/apk/res/android}"
+        ET.register_namespace("android", android_ns[1:-1])
+        ET.register_namespace("app", "http://schemas.android.com/apk/res-auto")
+        root = ET.fromstring(text)
+        for view_id in ("menu_channels", "menu_agenda"):
+            suffix = "/" + view_id
+            item = next((node for node in root.iter()
+                         if node.get(android_ns + "id", "").endswith(suffix)), None)
+            if item is None:
+                raise RuntimeError("No se encontró el elemento del menú lateral: " + view_id)
+            item.set(android_ns + "background", "@android:color/transparent")
+        text = ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    elif name == "app/src/main/res/layout/fragment_channels_tv.xml":
+        import xml.etree.ElementTree as ET
+        android_ns = "{http://schemas.android.com/apk/res/android}"
+        app_ns = "{http://schemas.android.com/apk/res-auto}"
+        ET.register_namespace("android", android_ns[1:-1])
+        ET.register_namespace("app", app_ns[1:-1])
+        root = ET.fromstring(text)
+
+        def by_id(view_id: str):
+            suffix = "/" + view_id
+            return next((node for node in root.iter()
+                         if node.get(android_ns + "id", "").endswith(suffix)), None)
+
+        player_column = by_id("tv_player_column")
+        player = by_id("inline_player_container")
+        channels_panel = by_id("tv_channels_panel")
+        channels_list = by_id("channels_list_container")
+        if any(node is None for node in (player_column, player, channels_panel, channels_list)):
+            raise RuntimeError("Faltan componentes del layout Android TV para aplicar el rediseño.")
+
+        # Dos atajos discretos debajo de la vista previa; reutilizan la Activity de pantalla completa.
+        action_row = by_id("tv_player_action_row")
+        if action_row is None:
+            action_row = ET.Element("LinearLayout", {
+                android_ns + "id": "@+id/tv_player_action_row",
+                android_ns + "layout_width": "match_parent",
+                android_ns + "layout_height": "wrap_content",
+                android_ns + "layout_marginTop": "8dp",
+                android_ns + "orientation": "horizontal",
+                android_ns + "gravity": "start|center_vertical",
+                android_ns + "minHeight": "48dp",
+                android_ns + "paddingStart": "2dp",
+                android_ns + "paddingEnd": "2dp",
+                android_ns + "clipChildren": "false",
+                android_ns + "clipToPadding": "false"
+            })
+        if action_row in list(player_column):
+            player_column.remove(action_row)
+        children = list(player_column)
+        player_index = children.index(player)
+        player_column.insert(player_index + 1, action_row)
+
+        channels_button = by_id("tv_inline_channels_button")
+        if channels_button is None:
+            channels_button = ET.Element("ImageButton", {
+                android_ns + "id": "@+id/tv_inline_channels_button"
+            })
+        search_button = by_id("tv_inline_search_button")
+        if search_button is None:
+            search_button = ET.Element("ImageButton", {
+                android_ns + "id": "@+id/tv_inline_search_button"
+            })
+
+        # El botón de búsqueda preexistente se mueve desde la esquina del vídeo a esta fila.
+        for button in (channels_button, search_button):
+            for parent in root.iter():
+                if button in list(parent):
+                    parent.remove(button)
+                    break
+
+        def configure_action_button(button, view_id: str, description: str, icon: str):
+            attrs = {
+                android_ns + "id": "@+id/" + view_id,
+                android_ns + "layout_width": "48dp",
+                android_ns + "layout_height": "48dp",
+                android_ns + "layout_marginTop": "0dp",
+                android_ns + "layout_marginEnd": "10dp" if view_id == "tv_inline_channels_button" else "0dp",
+                android_ns + "background": "@android:color/transparent",
+                android_ns + "contentDescription": description,
+                android_ns + "focusable": "true",
+                android_ns + "focusableInTouchMode": "true",
+                android_ns + "clickable": "true",
+                android_ns + "padding": "12dp",
+                android_ns + "nextFocusUp": "@id/inline_player_container",
+                android_ns + "nextFocusDown": "@id/channels_recycler",
+                android_ns + "nextFocusLeft": "@id/menu_channels" if view_id == "tv_inline_channels_button" else "@id/tv_inline_channels_button",
+                android_ns + "nextFocusRight": "@id/tv_inline_search_button" if view_id == "tv_inline_channels_button" else "@id/channels_recycler",
+                android_ns + "src": icon,
+                app_ns + "tint": "@color/bottom_nav_color",
+                android_ns + "visibility": "visible"
+            }
+            button.attrib.clear()
+            button.attrib.update(attrs)
+            button.attrib.pop(android_ns + "layout_gravity", None)
+
+        configure_action_button(channels_button, "tv_inline_channels_button", "Abrir lista de canales", "@drawable/ic_channels")
+        configure_action_button(search_button, "tv_inline_search_button", "Buscar canales", "@drawable/ic_search")
+        action_row.append(channels_button)
+        action_row.append(search_button)
+
+        # La guía textual permanente se reemplaza por controles limpios y accesibles.
+        for view_id in ("tv_player_guide", "tv_player_keys_hint", "tv_player_footer_hint"):
+            node = by_id(view_id)
+            if node is not None:
+                node.set(android_ns + "visibility", "gone")
+
+        # La lista derecha queda sin cabecera ni bloque de instrucciones; las flechas son solo visuales.
+        for view_id, symbol in (("tv_channels_scroll_up", "▲"), ("tv_channels_scroll_down", "▼")):
+            arrow = by_id(view_id)
+            if arrow is None:
+                arrow = ET.Element("TextView", {
+                    android_ns + "id": "@+id/" + view_id
+                })
+            arrow.attrib.update({
+                android_ns + "layout_width": "match_parent",
+                android_ns + "layout_height": "18dp",
+                android_ns + "gravity": "center",
+                android_ns + "text": symbol,
+                android_ns + "textColor": "@color/text_hint",
+                android_ns + "textSize": "12sp",
+                android_ns + "includeFontPadding": "false",
+                android_ns + "focusable": "false",
+                android_ns + "clickable": "false",
+                android_ns + "importantForAccessibility": "no"
+            })
+            for parent in root.iter():
+                if arrow in list(parent):
+                    parent.remove(arrow)
+                    break
+
+        up_arrow = by_id("tv_channels_scroll_up")
+        down_arrow = by_id("tv_channels_scroll_down")
+        channels_panel.insert(list(channels_panel).index(channels_list), up_arrow)
+        channels_panel.insert(list(channels_panel).index(channels_list) + 1, down_arrow)
+
+        guide = by_id("tv_list_guide")
+        if guide is not None:
+            guide.set(android_ns + "visibility", "gone")
+            panel_children = list(channels_panel)
+            guide_index = panel_children.index(guide)
+            if guide_index > 0:
+                divider = panel_children[guide_index - 1]
+                if divider.tag == "View" and divider.get(android_ns + "layout_height") == "1dp":
+                    divider.set(android_ns + "visibility", "gone")
+
+        text = ET.tostring(root, encoding="unicode", xml_declaration=True)
+
+    return text
 
 
 def main() -> int:
