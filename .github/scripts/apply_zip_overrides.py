@@ -288,7 +288,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "guardar el último canal al seleccionarlo")
 
         text = replace_once(text,
-            "        inlineChannel = null\n        if (isTV && ::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)\n",
+            "        inlineChannel = null\n        if (::channelsAdapter.isInitialized) channelsAdapter.setPreviewChannel(null)\n",
             """        inlineChannel = null
         if (isTV) {
             requireContext().getSharedPreferences("angulismotv_playback", android.content.Context.MODE_PRIVATE)
@@ -1113,7 +1113,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         categories = by_id("categories_scroll")
         search = by_id("channels_search_container")
         header = by_id("channels_section_header")
-        if not all((player_column, player, panel, categories, search, header)):
+        if any(node is None for node in (player_column, player, panel, categories, search, header)):
             raise RuntimeError("No se pudieron localizar todos los componentes del layout Android TV.")
 
         player_column.set(android_ns + "layout_weight", "2.15")
