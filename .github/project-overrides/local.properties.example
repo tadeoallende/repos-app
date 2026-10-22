@@ -1,0 +1,24 @@
+# Copiá este archivo como local.properties (NO se sube al repo) y completá lo que uses.
+sdk.dir=/ruta/al/Android/sdk
+
+# Fuente IPTV-org; usa índice global con filtrado de canales de América + internacionales.
+IPTV_ORG_URL=https://iptv-org.github.io/iptv/index.m3u
+
+# Fuentes de respaldo heredadas: solo se usan si IPTV-org no entrega canales.
+CHANNELS_URL=
+EVENTS_URL=
+
+# Catálogo personal adicional, combinado siempre con IPTV-org y sin filtro geográfico.
+# El valor predeterminado consulta canales.json en la raíz del repositorio.
+CUSTOM_CHANNELS_URL=https://raw.githubusercontent.com/tadeoallende/repos-app/main/canales.json
+
+# Endpoint de versión para actualizaciones. Vacío = sin chequeo de updates.
+UPDATE_URL=
+# Sitio web de Agenda
+WEB_BASE_URL=https://angulismotv.pages.dev
+
+# Firma de release (opcional)
+RELEASE_STORE_FILE=
+RELEASE_STORE_PASSWORD=
+RELEASE_KEY_ALIAS=
+RELEASE_KEY_PASSWORD=
