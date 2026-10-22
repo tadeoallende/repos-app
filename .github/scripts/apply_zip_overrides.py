@@ -56,10 +56,12 @@ def apply_nebula_visuals(name: str, text: str) -> str:
                 value = "#26324A"
             elif any(token in resource_name for token in ("nebula", "cosmic", "space_purple", "indigo_accent")):
                 value = "#8D7CFF"
-            elif resource_name in ("colorprimarydark", "color_primary_dark", "background", "app_background", "window_background", "screen_background", "bg_primary"):
+            elif resource_name in ("colorprimarydark", "color_primary_dark", "background", "app_background", "window_background", "screen_background", "bg_primary", "colorbackground", "color_background", "background_dark", "background_primary", "bg_app", "bg_screen") or any(token in resource_name for token in ("app_background", "window_background", "screen_background", "background_dark", "background_primary", "bg_primary", "bg_app", "bg_screen")):
                 value = "#080D1B"
-            elif any(token in resource_name for token in ("surface", "card_background", "panel_background", "background_surface")):
+            elif any(token in resource_name for token in ("surface", "card", "panel", "background_surface", "surface_background")):
                 value = "#11182A"
+            elif resource_name in ("colorprimary", "color_primary", "primary_accent"):
+                value = "#63E6E0"
 
             if value:
                 node.text = value
@@ -1235,6 +1237,8 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             return next((node for node in root.iter()
                          if node.get(android_ns + "id", "").endswith(suffix)), None)
 
+        # Fondo medianoche con matices nebulares sutiles; no añade textura sobre el vídeo.
+        root.set(android_ns + "background", "@drawable/bg_nebula_screen")
         player_column = by_id("tv_player_column")
         player = by_id("inline_player_container")
         panel = by_id("tv_channels_panel")
@@ -1466,6 +1470,13 @@ def apply_ui_redesign(name: str, text: str) -> str:
         channels_list = by_id("channels_list_container")
         if any(node is None for node in (player_column, player, channels_panel, channels_list)):
             raise RuntimeError("Faltan componentes del layout Android TV para aplicar el rediseño.")
+        # También limpiar la lista y su marco interno si el ZIP base les asigna un drawable.
+        channels_panel.set(android_ns + "background", "@android:color/transparent")
+        channels_panel.set(android_ns + "elevation", "0dp")
+        channels_panel.attrib.pop(android_ns + "backgroundTint", None)
+        channels_list.set(android_ns + "background", "@android:color/transparent")
+        channels_list.set(android_ns + "elevation", "0dp")
+        channels_list.attrib.pop(android_ns + "backgroundTint", None)
 
         # Dos atajos discretos debajo de la vista previa; reutilizan la Activity de pantalla completa.
         action_row = by_id("tv_player_action_row")
