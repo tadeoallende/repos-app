@@ -22,10 +22,10 @@ jobs:
     timeout-minutes: 30
     env:
       # Repository Actions variable IPTV_ORG_URL accepts a compatible M3U URL or 'disabled'.
-      ORG_GRADLE_PROJECT_IPTV_ORG_URL: ${{ vars.IPTV_ORG_URL || secrets.IPTV_ORG_URL || 'https://iptv-org.github.io/iptv/index.m3u' }}
-      ORG_GRADLE_PROJECT_CHANNELS_URL: ${{ secrets.CHANNELS_URL }}
-      ORG_GRADLE_PROJECT_EVENTS_URL: ${{ secrets.EVENTS_URL }}
-      ORG_GRADLE_PROJECT_CUSTOM_CHANNELS_URL: ${{ secrets.CUSTOM_CHANNELS_URL || format('https://raw.githubusercontent.com/{0}/{1}/canales.json', github.repository, github.ref_name) }}
+      ORG_GRADLE_PROJECT_IPTV_ORG_URL: 'disabled'
+      ORG_GRADLE_PROJECT_CHANNELS_URL: 'disabled'
+      ORG_GRADLE_PROJECT_EVENTS_URL: 'disabled'
+      ORG_GRADLE_PROJECT_CUSTOM_CHANNELS_URL: 'https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json'
       ORG_GRADLE_PROJECT_UPDATE_URL: ${{ secrets.UPDATE_URL }}
       ORG_GRADLE_PROJECT_WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
 
