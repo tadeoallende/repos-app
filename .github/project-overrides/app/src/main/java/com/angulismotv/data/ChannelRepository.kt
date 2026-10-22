@@ -65,7 +65,7 @@ object ChannelRepository {
 
     suspend fun loadAll(context: Context? = null): LoadResult = coroutineScope {
         // Fetch the regional catalogue and user-maintained feed concurrently.
-        val primaryDeferred = async { loadPrimarySource() }
+        val primaryDeferred = async { loadPrimarySource(context) }
         val personalDeferred = async { loadPersonalSource() }
         val primary = primaryDeferred.await()
         val personal = personalDeferred.await()
@@ -75,11 +75,11 @@ object ChannelRepository {
                 (primary.channels + personal.channels).distinctChannels()
             }
             if (context != null && merged.isNotEmpty()) saveCache(context, merged)
-            Log.i(TAG, "Canales cargados: IPTV-org=" + primary.channels.size + ", propios=" + personal.channels.size)
+            Log.i(TAG, "Canales cargados: fuente principal=" + primary.channels.size + ", propios=" + personal.channels.size)
             return@coroutineScope LoadResult(
                 channels = merged,
                 partialFailure = personal.url.isNotBlank() && personal.result.isFailure,
-                sourceName = if (personal.channels.isNotEmpty()) "IPTV-org + canales propios" else "IPTV-org"
+                sourceName = if (personal.channels.isNotEmpty()) remoteSourceLabel(primary.url) + " + canales propios" else remoteSourceLabel(primary.url)
             )
         }
 
@@ -87,8 +87,9 @@ object ChannelRepository {
         loadFallbackSources(primary, personal, context)
     }
 
-    private suspend fun loadPrimarySource(): SourceLoad {
-        val configuredUrl = BuildConfig.IPTV_ORG_URL.trim()
+    private suspend fun loadPrimarySource(context: Context?): SourceLoad {
+        val remoteSource = RemoteSourceConfiguration.load(context)
+        val configuredUrl = if (remoteSource.enabled) remoteSource.url else "disabled"
         val url = IptvOrgPlaylistPolicy.resolve(configuredUrl)
         val result = if (url.isBlank()) Result.success(emptyList()) else iptvOrgDataSource.load(url)
         val parsed = result.getOrDefault(emptyList())
@@ -109,11 +110,14 @@ object ChannelRepository {
         return SourceLoad(url, result, channels)
     }
 
+    private fun remoteSourceLabel(url: String): String =
+        if (url.isBlank()) "Fuente principal desactivada" else "Fuente principal"
+
     private fun logPrimarySourceFailure(primary: SourceLoad) {
         if (primary.result.isFailure) {
-            Log.w(TAG, "IPTV-org no disponible; se intentarán las fuentes de respaldo")
+            Log.w(TAG, "La fuente principal no está disponible; se intentarán las fuentes de respaldo")
         } else if (primary.url.isNotBlank()) {
-            Log.w(TAG, "IPTV-org no devolvió canales de América o cadenas internacionales; se intentarán las fuentes de respaldo")
+            Log.w(TAG, "La fuente principal no devolvió canales válidos; se intentarán las fuentes de respaldo")
         }
     }
 
