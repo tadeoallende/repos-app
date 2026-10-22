@@ -38,14 +38,28 @@ object ChannelRepository {
         val channels: List<Channel>
     )
 
-    /** Devuelve el último catálogo bueno guardado localmente para evitar una pantalla vacía al arrancar. */
+    /** Lee y recupera el último catálogo bueno guardado localmente, sin copiar el JSON entero a memoria. */
     suspend fun loadCached(context: Context): LoadResult? = withContext(Dispatchers.IO) {
         runCatching {
-            val file = File(context.applicationContext.filesDir, CACHE_FILE)
-            if (!file.isFile || file.length() <= 2L) return@runCatching null
-            val channels: List<Channel> = gson.fromJson(file.readText(Charsets.UTF_8), cacheType)
-                ?: return@runCatching null
-            channels.takeIf { it.isNotEmpty() }?.let { LoadResult(it, sourceName = "Caché local") }
+            val directory = context.applicationContext.filesDir
+            val target = File(directory, CACHE_FILE)
+            val backup = File(directory, "$CACHE_FILE.bak")
+            listOf(target, backup).firstNotNullOfOrNull { file ->
+                if (!file.isFile || file.length() <= 2L) return@firstNotNullOfOrNull null
+                val channels = runCatching {
+                    file.bufferedReader(Charsets.UTF_8).use { reader ->
+                        gson.fromJson<List<Channel>>(reader, cacheType)
+                    }
+                }.getOrNull().orEmpty()
+                if (channels.isEmpty()) return@firstNotNullOfOrNull null
+
+                if (file == backup && (!target.exists() || target.delete())) {
+                    if (!backup.renameTo(target)) {
+                        Log.w(TAG, "Se recuperó la caché de respaldo en memoria, pero no se pudo restaurar el archivo")
+                    }
+                }
+                LoadResult(channels, sourceName = "Caché local")
+            }
         }.onFailure { Log.w(TAG, "No se pudo leer la caché local (" + it.javaClass.simpleName + ")") }.getOrNull()
     }
 
@@ -141,7 +155,7 @@ object ChannelRepository {
             val target = File(directory, CACHE_FILE)
             val temporary = File(directory, "$CACHE_FILE.tmp")
             val backup = File(directory, "$CACHE_FILE.bak")
-            temporary.writeText(gson.toJson(channels, cacheType), Charsets.UTF_8)
+            temporary.bufferedWriter(Charsets.UTF_8).use { writer -> gson.toJson(channels, cacheType, writer) }
 
             // Keep the previous valid cache until the replacement file is ready to become the target.
             if (target.exists()) {

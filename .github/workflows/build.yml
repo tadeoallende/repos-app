@@ -42,15 +42,6 @@ jobs:
           fi
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
 
-      - name: Preparar fuentes para auditoría temporal
-        run: tar -czf "$GITHUB_WORKSPACE/project-source-review.tar.gz" -C "$PROJECT_DIR" .
-
-      - name: Subir fuentes para auditoría temporal
-        uses: actions/upload-artifact@v4
-        with:
-          name: project-source-review
-          path: project-source-review.tar.gz
-          retention-days: 1
 
       - uses: actions/setup-java@v4
         with:
