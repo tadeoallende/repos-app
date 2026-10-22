@@ -186,7 +186,7 @@ jobs:
             full.log
             screen.png
           if-no-files-found: ignore
-probar-en-emulador-tv:
+  probar-en-emulador-tv:
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 30
