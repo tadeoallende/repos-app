@@ -107,9 +107,13 @@ object ChannelRegionPolicy {
         return internationalNetworkPatterns.any { it.containsMatchIn(name) }
     }
 
+    // Reuse compiled patterns: normalization runs for every channel during catalogue filtering.
+    private val combiningMarksPattern = Regex("\\p{M}+")
+    private val nonWordCharactersPattern = Regex("[^\\p{L}\\p{N}]+")
+
     private fun normalize(value: String): String = Normalizer
         .normalize(value.lowercase(Locale.ROOT), Normalizer.Form.NFD)
-        .replace(Regex("\\p{M}+"), "")
-        .replace(Regex("[^\\p{L}\\p{N}]+"), " ")
+        .replace(combiningMarksPattern, "")
+        .replace(nonWordCharactersPattern, " ")
         .trim()
 }
