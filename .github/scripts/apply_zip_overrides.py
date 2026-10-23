@@ -1627,12 +1627,27 @@ def apply_ui_redesign(name: str, text: str) -> str:
         openChannelSearch: Boolean = false
     ) {"""
         text = replace_once(text, old_signature, new_signature, "añadir acceso directo al panel del reproductor")
+        text = replace_once(
+            text,
+            "        val catalog = resolvePlayerLaunchCatalog(channel)\n",
+            "        val catalog = PlayerLaunchRequestFactory.resolveCatalog(originalChannels, channel)\n",
+            "delegar resolución del catálogo de lanzamiento"
+        )
 
         old_intent = "        val launchIntent = createPlayerLaunchIntent(channel, catalog, catalogToken, fromInline, handoff)"
-        new_intent = """        val launchIntent = createPlayerLaunchIntent(channel, catalog, catalogToken, fromInline, handoff)
-            .putExtra("open_channel_panel", openChannelPanel)
-            .putExtra("open_channel_search", openChannelSearch)"""
-        text = replace_once(text, old_intent, new_intent, "enviar destino inicial al reproductor")
+        new_intent = """        val launchIntent = PlayerLaunchRequestFactory.createIntent(
+            context = requireContext(),
+            channel = channel,
+            catalog = catalog,
+            catalogToken = catalogToken,
+            fromInline = fromInline,
+            isTV = isTV,
+            sourceIndex = inlineSourceIndex,
+            handoff = handoff,
+            openChannelPanel = openChannelPanel,
+            openChannelSearch = openChannelSearch
+        )"""
+        text = replace_once(text, old_intent, new_intent, "delegar construcción del Intent de lanzamiento")
 
         # Keep the inline-to-fullscreen ownership transfer outside the Fragment.
         text = replace_once(
@@ -1640,9 +1655,17 @@ def apply_ui_redesign(name: str, text: str) -> str:
             "package com.angulismotv.fragments\n",
             "package com.angulismotv.fragments\n"
             "import com.angulismotv.player.InlinePlayerTransferController\n"
-            "import com.angulismotv.player.InlinePlayerTransferPlan\n",
-            "importar controlador de traspaso"
+            "import com.angulismotv.player.InlinePlayerTransferPlan\n"
+            "import com.angulismotv.player.PlayerLaunchRequestFactory\n",
+            "importar controlador de traspaso y fábrica de lanzamiento"
         )
+        # La construcción del Intent y el modelo del catálogo dejan de pertenecer al Fragment.
+        text = text.replace("import android.content.Intent\n", "")
+        text = text.replace("import com.angulismotv.UnifiedPlayerActivity\n", "")
+        old_catalog_model = "private data class PlayerLaunchCatalog(\n    val channels: List<Channel>,\n    val channelIndex: Int\n)\n\n"
+        if old_catalog_model not in text:
+            raise RuntimeError("No se encontró el modelo local PlayerLaunchCatalog")
+        text = text.replace(old_catalog_model, "", 1)
         text = replace_once(
             text,
             "    private var inlinePlaybackEngineController: InlinePlaybackEngineController? = null\n",
@@ -1693,6 +1716,16 @@ def apply_ui_redesign(name: str, text: str) -> str:
             "            ?: InlinePlayerTransferPlan.NONE\n",
             "delegar decisión de traspaso"
         )
+        old_resolve_method = "    private fun resolvePlayerLaunchCatalog(channel: Channel): PlayerLaunchCatalog {\n        val matchingIndex = originalChannels.indexOfFirst { ChannelIdentity.same(it, channel) }\n        // A stale channel should be appended, not silently replaced by the first catalog item.\n        val channels = if (matchingIndex >= 0) originalChannels else originalChannels + channel\n        val index = if (matchingIndex >= 0) matchingIndex else channels.lastIndex\n        return PlayerLaunchCatalog(channels, index)\n    }\n\n"
+        old_create_method = "    private fun createPlayerLaunchIntent(\n        channel: Channel,\n        catalog: PlayerLaunchCatalog,\n        catalogToken: Long,\n        fromInline: Boolean,\n        handoff: InlinePlayerTransferPlan\n    ): Intent = Intent(requireContext(), UnifiedPlayerActivity::class.java).apply {\n        // Avoid putting the whole catalog in the Intent: Binder bundles have a size limit.\n        putExtra(\"channel_catalog_token\", catalogToken)\n        putExtra(\"current_channel\", channel)\n        putExtra(\"channel_index\", catalog.channelIndex)\n        putExtra(\"channel_name\", channel.name)\n        putExtra(\"channel_logo\", channel.logo)\n        putExtra(\"stream_url\", channel.streamUrl)\n        putExtra(\"stream_type\", channel.streamType ?: StreamType.AUTO)\n        putExtra(\"from_inline_player\", fromInline)\n        putExtra(\"force_landscape_fullscreen\", fromInline && !isTV)\n        putExtra(\"source_index\", inlineSourceIndex)\n        putExtra(\"reuse_inline_player_session\", handoff.transferNativePlayer)\n        putExtra(\"reuse_inline_webview_session\", handoff.transferWebView)\n    }\n\n"
+        for obsolete_block, label in (
+            (old_resolve_method, "retirar el resolvedor local de catálogo"),
+            (old_create_method, "retirar el constructor local del Intent"),
+        ):
+            if obsolete_block not in text:
+                raise RuntimeError("No se pudo " + label)
+            text = text.replace(obsolete_block, "", 1)
+
         text = replace_once(
             text,
             "        handoff: InlineHandoffPlan\n",
