@@ -1309,52 +1309,22 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         if zapping_name_matches == 0 and "zappingChannelName?.visibility = View.GONE" not in text:
             raise RuntimeError("No se pudo ocultar el nombre transitorio del zapping.")
 
-        # Primero preparar estado invisible y después animar; evitar destellos y reinicios.
-        reveal_helpers = """    private fun revealControlView(target: View, slide: Boolean) {
-        target.animate().cancel()
-        if (target.visibility != View.VISIBLE) {
-            target.alpha = 0f
-            target.translationY = if (slide) 12f * resources.displayMetrics.density else 0f
-            target.visibility = View.VISIBLE
-        }
-        target.animate()
-            .alpha(1f)
-            .translationY(0f)
-            .setDuration(230L)
-            .setInterpolator(android.view.animation.DecelerateInterpolator(1.35f))
-            .withEndAction {
-                if (target.visibility == View.VISIBLE) {
-                    target.alpha = 1f
-                    target.translationY = 0f
-                }
-            }
-            .start()
-    }
-
-    private fun concealControlView(target: View, slide: Boolean) {
-        if (target.visibility != View.VISIBLE) return
-        target.animate().cancel()
-        target.animate()
-            .alpha(0f)
-            .translationY(if (slide) 10f * resources.displayMetrics.density else 0f)
-            .setDuration(150L)
-            .setInterpolator(android.view.animation.AccelerateInterpolator())
-            .withEndAction {
-                target.visibility = View.GONE
-                target.alpha = 1f
-                target.translationY = 0f
-            }
-            .start()
-    }
-
-"""
-        if "    private fun revealControlView(target: View, slide: Boolean)" not in text:
-            text = replace_once(
+        # La Activity conserva la orquestación; las transiciones visuales viven en su controlador.
+        text = replace_once(
+            text,
+            "package com.angulismotv\\n",
+            "package com.angulismotv\\n\\nimport com.angulismotv.player.PlayerControlsAnimator\\n",
+            "importar animador de controles"
+        )
+        if "private val playerControlsAnimator = PlayerControlsAnimator()" not in text:
+            class_header_pattern = re.compile(r"(?m)^class\\s+UnifiedPlayerActivity[^{]*\\{\\s*\\n")
+            text, class_header_matches = class_header_pattern.subn(
+                lambda match: match.group(0) + "    private val playerControlsAnimator = PlayerControlsAnimator()\\n\\n",
                 text,
-                "    private fun showControls() {",
-                reveal_helpers + "    private fun showControls() {",
-                "añadir transiciones suaves a los controles"
+                count=1
             )
+            if class_header_matches != 1:
+                raise RuntimeError("No se pudo registrar PlayerControlsAnimator en UnifiedPlayerActivity")
 
         def replace_in_method(source: str, start_marker: str, end_marker: str, old: str, new: str, label: str) -> str:
             start = source.find(start_marker)
@@ -1367,9 +1337,9 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
         visible_pair = "        controlsOverlay.visibility = View.VISIBLE\n        bottomControls.visibility = View.VISIBLE\n"
         reveal_pair = "\n".join((
-            "        revealControlView(controlsOverlay, slide = false)",
-            "        revealControlView(bottomControls, slide = true)",
-            "        if (!isTV) revealControlView(findViewById(R.id.center_transport_controls_container), slide = false)",
+            "        playerControlsAnimator.show(controlsOverlay, slide = false)",
+            "        playerControlsAnimator.show(bottomControls, slide = true)",
+            "        if (!isTV) playerControlsAnimator.show(findViewById(R.id.center_transport_controls_container), slide = false)",
         )) + "\n"
         text = replace_in_method(
             text, "    private fun showControls() {", "    private fun showControlsTemporarily() {",
@@ -1382,7 +1352,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = replace_in_method(
             text, "    private fun hideControls() {", "    private fun updatePlayerTimeline() {",
             "        controlsOverlay.visibility = View.GONE\n        bottomControls.visibility = View.GONE\n",
-            "        concealControlView(controlsOverlay, slide = false)\n        concealControlView(bottomControls, slide = true)\n        if (!isTV) concealControlView(findViewById(R.id.center_transport_controls_container), slide = false)\n",
+            "        playerControlsAnimator.hide(controlsOverlay, slide = false)\n        playerControlsAnimator.hide(bottomControls, slide = true)\n        if (!isTV) playerControlsAnimator.hide(findViewById(R.id.center_transport_controls_container), slide = false)\n",
             "ocultar controles"
         )
 
