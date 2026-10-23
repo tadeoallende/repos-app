@@ -155,8 +155,6 @@ object ChannelRepository {
         val legacyChannelSource = SourceLoad(channelsUrl, channelsResult, legacyChannels, "Catálogo alternativo")
         val legacyEventSource = SourceLoad(eventsUrl, eventsResult, legacyEvents, "Eventos deportivos")
         val selection = CatalogSourceSelectionPolicy.select(
-            personal = personal.channels,
-            iptvOrgFallback = iptvOrgFallback.channels,
             legacyChannels = legacyChannelSource.channels,
             legacyEvents = legacyEventSource.channels
         )
@@ -173,8 +171,6 @@ object ChannelRepository {
         val anyUnavailable = personalUnavailable || iptvUnavailable ||
             legacyChannelsUnavailable || legacyEventsUnavailable
         val upstreamFailure = when (selection.source) {
-            CatalogSourceSelectionPolicy.Source.PERSONAL -> false
-            CatalogSourceSelectionPolicy.Source.IPTV_ORG_FALLBACK -> personalUnavailable
             CatalogSourceSelectionPolicy.Source.LEGACY_CHANNELS ->
                 personalUnavailable || iptvUnavailable
             CatalogSourceSelectionPolicy.Source.LEGACY_EVENTS ->
@@ -188,9 +184,6 @@ object ChannelRepository {
             notConfigured = channels.isEmpty() && !anyConfigured,
             partialFailure = channels.isNotEmpty() && upstreamFailure,
             sourceName = when (selection.source) {
-                CatalogSourceSelectionPolicy.Source.PERSONAL -> "Canales propios"
-                CatalogSourceSelectionPolicy.Source.IPTV_ORG_FALLBACK ->
-                    "${iptvOrgFallback.name.ifBlank { "IPTV-org" }} (respaldo)"
                 CatalogSourceSelectionPolicy.Source.LEGACY_CHANNELS -> "Catálogo alternativo (respaldo)"
                 CatalogSourceSelectionPolicy.Source.LEGACY_EVENTS -> "Eventos deportivos (respaldo)"
                 CatalogSourceSelectionPolicy.Source.NONE -> null
