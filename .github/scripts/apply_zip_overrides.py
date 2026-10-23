@@ -522,6 +522,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "radio del logo desde dimens.xml")
 
         text = text.replace("import android.util.TypedValue\n", "")
+        import re
         text, visual_init_count = re.subn(
             r"        init \{\n            val density = itemView.resources.displayMetrics.density\n.*?\n        \}\n\n        private var currentChannel: Channel\? = null",
             "        private var currentChannel: Channel? = null",
