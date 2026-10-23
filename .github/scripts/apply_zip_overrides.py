@@ -1514,6 +1514,131 @@ def apply_ui_redesign(name: str, text: str) -> str:
             .putExtra("open_channel_search", openChannelSearch)"""
         text = replace_once(text, old_intent, new_intent, "enviar destino inicial al reproductor")
 
+        # Keep the inline-to-fullscreen ownership transfer outside the Fragment.
+        text = replace_once(
+            text,
+            "from com.angulismotv.player.InlinePlayerHandoff\n",
+            "from com.angulismotv.player.InlinePlayerHandoff\n"
+            "import com.angulismotv.player.InlinePlayerTransferController\n"
+            "import com.angulismotv.player.InlinePlayerTransferPlan\n",
+            "importar controlador de traspaso"
+        )
+        text = replace_once(
+            text,
+            "    private var inlinePlaybackEngineController: InlinePlaybackEngineController? = null\n",
+            "    private var inlinePlaybackEngineController: InlinePlaybackEngineController? = null\n"
+            "    private var inlinePlayerTransferController: InlinePlayerTransferController? = null\n",
+            "registrar controlador de traspaso"
+        )
+        text = replace_once(
+            text,
+            "private data class InlineHandoffPlan(\n"
+            "    val transferNativePlayer: Boolean,\n"
+            "    val transferWebView: Boolean\n"
+            ")\n\n",
+            "",
+            "retirar plan de traspaso local"
+        )
+        text = replace_once(
+            text,
+            "        setupInlinePlaybackEngine()\n        applyChannelScreenLayout(view)",
+            "        setupInlinePlaybackEngine()\n"
+            "        setupInlinePlayerTransferController()\n"
+            "        applyChannelScreenLayout(view)",
+            "inicializar controlador de traspaso"
+        )
+        text = replace_once(
+            text,
+            "    private fun applyChannelScreenLayout(view: View) {\n",
+            "    private fun setupInlinePlayerTransferController() {\n"
+            "        inlinePlayerTransferController = InlinePlayerTransferController(\n"
+            "            playerProvider = { inlineExoPlayer },\n"
+            "            streamUrlProvider = { inlineCurrentStreamUrl },\n"
+            "            streamTypeProvider = { inlineCurrentStreamType },\n"
+            "            sourceIndexProvider = { inlineSourceIndex },\n"
+            "            channelProvider = { inlineChannel },\n"
+            "            webView = inlineWebView,\n"
+            "            recoveryProvider = { inlineRecoveryController },\n"
+            "            playbackEngineProvider = { inlinePlaybackEngineController },\n"
+            "            setLaunchingFullscreen = { isLaunchingFullscreen = it }\n"
+            "        )\n"
+            "    }\n\n"
+            "    private fun applyChannelScreenLayout(view: View) {\n",
+            "configurar controlador de traspaso"
+        )
+        text = replace_once(
+            text,
+            "        val handoff = prepareInlineHandoff(channel, fromInline)\n",
+            "        val handoff = inlinePlayerTransferController?.prepare(channel, fromInline)\n"
+            "            ?: InlinePlayerTransferPlan.NONE\n",
+            "delegar decisión de traspaso"
+        )
+        old_handoff = """    private fun prepareInlineHandoff(channel: Channel, fromInline: Boolean): InlineHandoffPlan {
+        isLaunchingFullscreen = fromInline
+        inlineRecoveryController?.stopWatchdog()
+        inlineRecoveryController?.cancelStablePlaybackTimer()
+        inlineRecoveryController?.cancelPendingReconnect()
+        val currentPlayer = inlineExoPlayer
+        val transferNativePlayer = fromInline && currentPlayer != null &&
+            inlineCurrentStreamUrl.isNotBlank() && inlineCurrentStreamType != StreamType.IFRAME
+        val transferWebView = fromInline && currentPlayer == null &&
+            inlineCurrentStreamType == StreamType.IFRAME && inlineCurrentStreamUrl.isNotBlank() &&
+            inlineWebView.visibility == View.VISIBLE && inlineWebView.url != null
+
+        when {
+            transferNativePlayer && currentPlayer != null -> offerNativePlayerToFullscreen(channel, currentPlayer)
+            transferWebView -> offerWebViewToFullscreen(channel)
+            else -> inlineExoPlayer?.pause()
+        }
+        inlineWebView.onPause()
+        return InlineHandoffPlan(transferNativePlayer, transferWebView)
+    }
+
+    private fun offerNativePlayerToFullscreen(channel: Channel, player: ExoPlayer) {
+        val session = InlinePlayerHandoff.Session(
+            player = player,
+            channel = inlineChannel ?: channel,
+            streamUrl = inlineCurrentStreamUrl,
+            streamType = inlineCurrentStreamType,
+            sourceIndex = inlineSourceIndex,
+            wasPlaying = player.playWhenReady
+        )
+        inlinePlaybackEngineController?.detachForHandoff(player)
+        InlinePlayerHandoff.offerToFullscreen(session)
+    }
+
+    private fun offerWebViewToFullscreen(channel: Channel) {
+        val oldParent = inlineWebView.parent as? ViewGroup
+        val oldIndex = oldParent?.indexOfChild(inlineWebView) ?: -1
+        val oldParams = inlineWebView.layoutParams
+        // Re-parent the live iframe WebView instead of loading it in a second instance.
+        oldParent?.removeView(inlineWebView)
+        InlinePlayerHandoff.offerToFullscreen(
+            InlinePlayerHandoff.Session(
+                player = null,
+                channel = inlineChannel ?: channel,
+                streamUrl = inlineCurrentStreamUrl,
+                streamType = StreamType.IFRAME,
+                sourceIndex = inlineSourceIndex,
+                wasPlaying = true,
+                webView = inlineWebView,
+                webViewParentIndex = oldIndex,
+                webViewLayoutParams = oldParams
+            )
+        )
+    }
+
+"""
+        text = replace_once(text, old_handoff, "", "extraer implementación del traspaso")
+        text = replace_once(
+            text,
+            "        inlinePlaybackEngineController = null\n        inlineTimelineController = null\n",
+            "        inlinePlaybackEngineController = null\n"
+            "        inlinePlayerTransferController = null\n"
+            "        inlineTimelineController = null\n",
+            "liberar controlador de traspaso"
+        )
+
     elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
         old = "        channelPanelController.setChannelCatalog(allChannels)"
         new = """        channelPanelController.setChannelCatalog(allChannels)
