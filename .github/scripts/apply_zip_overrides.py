@@ -435,6 +435,108 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "            channelsRecycler.nextFocusLeftId = R.id.inline_player_container\n",
             "            channelsRecycler.nextFocusLeftId = R.id.inline_player_container\n            channelsAdapter.setCategoryFocusTarget(R.id.tv_inline_search_button)\n",
             "asignar el botón de búsqueda como destino de foco")
+
+        # Animar el mini reproductor móvil con los mismos tiempos suaves que el reproductor dedicado.
+        inline_animation_helpers = """    private fun revealInlineControl(target: View, slide: Boolean) {
+        target.animate().cancel()
+        if (target.visibility != View.VISIBLE) {
+            target.alpha = 0f
+            target.translationY = if (slide) dp(12).toFloat() else 0f
+            target.visibility = View.VISIBLE
+        }
+        target.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration(230L)
+            .setInterpolator(android.view.animation.DecelerateInterpolator(1.35f))
+            .withEndAction {
+                if (target.visibility == View.VISIBLE) {
+                    target.alpha = 1f
+                    target.translationY = 0f
+                }
+            }
+            .start()
+    }
+
+    private fun concealInlineControl(target: View, slide: Boolean) {
+        if (target.visibility != View.VISIBLE) return
+        target.animate().cancel()
+        target.animate()
+            .alpha(0f)
+            .translationY(if (slide) dp(10).toFloat() else 0f)
+            .setDuration(150L)
+            .setInterpolator(android.view.animation.AccelerateInterpolator())
+            .withEndAction {
+                target.visibility = View.GONE
+                target.alpha = 1f
+                target.translationY = 0f
+            }
+            .start()
+    }
+
+"""
+        if "    private fun revealInlineControl(target: View, slide: Boolean)" not in text:
+            text = replace_once(
+                text,
+                "    private fun showInlineControlsTemporarily() {",
+                inline_animation_helpers + "    private fun showInlineControlsTemporarily() {",
+                "añadir transiciones al mini reproductor"
+            )
+
+        show_start = text.find("    private fun showInlineControlsTemporarily() {")
+        hide_start = text.find("    private fun hideInlineControls() {", show_start)
+        if show_start < 0 or hide_start < 0:
+            raise RuntimeError("No se encontraron los métodos de visibilidad del mini reproductor")
+        new_show = """    private fun showInlineControlsTemporarily() {
+        if (isTV || !_inlineControlsBarRef.isInitialized || inlinePlayerContainer.visibility != View.VISIBLE) return
+        inlineControlsVisible = true
+        val scrim = inlinePlayerContainer.findViewById<View>(R.id.inline_controls_scrim)
+        revealInlineControl(scrim, slide = false)
+        revealInlineControl(inlineControlsBar, slide = true)
+        inlineControlsBar.bringToFront()
+
+        if (inlinePlayerView.visibility == View.VISIBLE) {
+            revealInlineControl(inlineBtnPlayPause, slide = false)
+            inlineBtnPlayPause.bringToFront()
+            startInlineTimelineUpdates()
+            inlineTimelineContainer.post {
+                if (inlineControlsVisible && inlineTimelineContainer.visibility == View.VISIBLE) {
+                    revealInlineControl(inlineTimelineContainer, slide = true)
+                    inlineTimelineContainer.bringToFront()
+                }
+            }
+        } else {
+            concealInlineControl(inlineBtnPlayPause, slide = false)
+            concealInlineControl(inlineTimelineContainer, slide = true)
+            stopInlineTimelineUpdates()
+        }
+
+        hideInlineControlsRunnable?.let { inlineControlsHandler.removeCallbacks(it) }
+        hideInlineControlsRunnable = Runnable { hideInlineControls() }
+        inlineControlsHandler.postDelayed(hideInlineControlsRunnable!!, 4_000L)
+    }
+
+"""
+        text = text[:show_start] + new_show + text[hide_start:]
+        hide_start = text.find("    private fun hideInlineControls() {")
+        refresh_start = text.find("    private fun refreshInlineCastAvailability()", hide_start)
+        if hide_start < 0 or refresh_start < 0:
+            raise RuntimeError("No se pudo delimitar el método que oculta el mini reproductor")
+        new_hide = """    private fun hideInlineControls() {
+        if (!_inlineControlsBarRef.isInitialized) return
+        inlineControlsVisible = false
+        concealInlineControl(inlinePlayerContainer.findViewById<View>(R.id.inline_controls_scrim), slide = false)
+        concealInlineControl(inlineControlsBar, slide = true)
+        concealInlineControl(inlineTimelineContainer, slide = true)
+        concealInlineControl(inlineBtnPlayPause, slide = false)
+        stopInlineTimelineUpdates()
+        hideInlineControlsRunnable?.let { inlineControlsHandler.removeCallbacks(it) }
+        hideInlineControlsRunnable = null
+    }
+
+"""
+        text = text[:hide_start] + new_hide + text[refresh_start:]
+
     elif name == "app/src/main/java/com/angulismotv/adapters/ChannelsAdapter.kt":
         text = replace_once(text, "if (isTV && itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "if (itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "notificar selección móvil")
         text = replace_once(text, "holder.itemView.isSelected = isTV && previewChannelKey == ChannelIdentity.key(channel)", "holder.itemView.isSelected = previewChannelKey == ChannelIdentity.key(channel)", "selección visual móvil")
@@ -1236,7 +1338,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             return source[:start] + region + source[end:]
 
         visible_pair = "        controlsOverlay.visibility = View.VISIBLE\n        bottomControls.visibility = View.VISIBLE\n"
-        reveal_pair = "        revealControlView(controlsOverlay, slide = false)\n        revealControlView(bottomControls, slide = true)\n"
+        reveal_pair = "        revealControlView(controlsOverlay, slide = false)\n        revealControlView(bottomControls, slide = true)\n        if (!isTV) revealControlView(findViewById(R.id.center_transport_controls_container), slide = false)"
         text = replace_in_method(
             text, "    private fun showControls() {", "    private fun showControlsTemporarily() {",
             visible_pair, reveal_pair, "mostrar controles"
@@ -1248,7 +1350,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = replace_in_method(
             text, "    private fun hideControls() {", "    private fun updatePlayerTimeline() {",
             "        controlsOverlay.visibility = View.GONE\n        bottomControls.visibility = View.GONE\n",
-            "        concealControlView(controlsOverlay, slide = false)\n        concealControlView(bottomControls, slide = true)\n",
+            "        concealControlView(controlsOverlay, slide = false)\n        concealControlView(bottomControls, slide = true)\n        if (!isTV) concealControlView(findViewById(R.id.center_transport_controls_container), slide = false)\n",
             "ocultar controles"
         )
 
@@ -1330,6 +1432,20 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
 '''
         text = replace_once(text, marker, placeholder + marker, "placeholder del mini reproductor")
+        scrim_marker = '        <LinearLayout\n            android:id="@+id/tv_player_empty_state"\n'
+        scrim = """        <View
+            android:id="@+id/inline_controls_scrim"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/inline_controls_scrim_height_mobile"
+            android:layout_gravity="bottom"
+            android:background="@drawable/bg_player_controls_panel"
+            android:clickable="false"
+            android:focusable="false"
+            android:visibility="gone" />
+
+"""
+        if "inline_controls_scrim" not in text:
+            text = replace_once(text, scrim_marker, scrim + scrim_marker, "degradado inferior del mini reproductor")
 
     elif name == "app/src/main/res/layout/fragment_channels_tv.xml":
         import xml.etree.ElementTree as ET

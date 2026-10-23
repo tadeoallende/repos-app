@@ -80,6 +80,8 @@ def token_dimensions():
         '<dimen name="channel_logo_corner_radius_mobile">6dp</dimen>',
         '<dimen name="channel_logo_corner_radius_tv">12dp</dimen>',
         '<dimen name="player_loading_indicator_size">48dp</dimen>',
+        '<dimen name="header_search_button_margin_end_mobile">0dp</dimen>',
+        '<dimen name="inline_controls_scrim_height_mobile">96dp</dimen>',
         '<dimen name="player_error_padding">18dp</dimen>',
         '<dimen name="player_error_max_width">420dp</dimen>',
         '<dimen name="text_size_channel_number_overlay">32sp</dimen>',
@@ -364,6 +366,23 @@ def update_xml():
         },
     })
 
+    # Contenedor independiente para los controles de transporte en el centro del video móvil.
+    p = L / "activity_unified_player.xml"
+    s = read(p)
+    if "center_transport_controls_container" not in s:
+        match = re.search(r'(?P<indent> *)<LinearLayout\b(?=[^>]*android:id="@\+id/bottom_controls")', s)
+        if not match:
+            raise SystemExit("Missing bottom_controls in activity_unified_player.xml")
+        indent = match.group("indent")
+        center_controls = (
+            indent + '<FrameLayout android:id="@+id/center_transport_controls_container" '
+            'android:layout_width="match_parent" android:layout_height="match_parent" '
+            'android:layout_gravity="center" android:visibility="gone" '
+            'android:clickable="false" android:focusable="false" />\n'
+        )
+        s = s[:match.start()] + center_controls + s[match.start():]
+        write(p, s)
+
     mobile = L / "fragment_channels.xml"
     style_view(mobile, "inline_btn_play_pause", "style", "Widget.AngulismoTV.InlinePlayerPrimaryButton", ("android:background", "android:padding"))
     s = read(mobile).replace('android:layout_width="58dp"', 'android:layout_width="@dimen/inline_player_primary_action_size"').replace('android:layout_height="58dp"', 'android:layout_height="@dimen/inline_player_primary_action_size"')
@@ -379,7 +398,10 @@ def update_xml():
     s = re.sub(r'(<TextClock\b(?=[^>]*android:id="@\+id/header_clock")[^>]*?)\s+android:textColor="[^"]*"\s+android:textSize="[^"]*"\s+android:fontFamily="[^"]*"', r'\1 android:textAppearance="@style/TextAppearance.AngulismoTV.HeaderClock"', s, count=1)
     write(main, s)
     # El reloj está en la jerarquía común, pero arranca oculto: solo el modo TV lo habilita.
-    set_view_attributes(main, {"header_clock": {"android:visibility": "gone"}})
+    set_view_attributes(main, {
+        "header_search_button": {"android:layout_marginEnd": "@dimen/header_search_button_margin_end_mobile"},
+        "header_clock": {"android:visibility": "gone"},
+    })
 
     # Source ZIP had a stray non-XML wrapper at EOF, which prevents AAPT from parsing this layout.
     p = L / "fragment_channels_tv.xml"
@@ -534,6 +556,12 @@ def update_kotlin():
 
     p = J / "UnifiedPlayerActivity.kt"
     s = read(p)
+    center_transport_arg = "            centerTransportControlsContainer = findViewById(R.id.center_transport_controls_container)"
+    if center_transport_arg not in s:
+        bottom_controls_marker = "            bottomControls = bottomControls\n"
+        if bottom_controls_marker not in s:
+            raise SystemExit("Missing bottomControls constructor argument in UnifiedPlayerActivity")
+        s = s.replace(bottom_controls_marker, "            bottomControls = bottomControls,\n" + center_transport_arg + "\n", 1)
     s=s.replace('    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()\n\n','')
     s=s.replace('val size = (48 * resources.displayMetrics.density + 0.5f).toInt()','val size = resources.getDimensionPixelSize(R.dimen.player_control_size_tv)')
     s=s.replace('val maxNameWidthDp = if (isTV) 480 else 220\n            maxWidth = (maxNameWidthDp * resources.displayMetrics.density).toInt()','val maxNameWidthRes = if (isTV) R.dimen.zapping_label_max_width_tv else R.dimen.zapping_label_max_width_mobile\n            maxWidth = resources.getDimensionPixelSize(maxNameWidthRes)')
