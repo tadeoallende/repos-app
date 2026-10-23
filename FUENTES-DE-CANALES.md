@@ -7,7 +7,7 @@ AngulismoTV consulta la configuración remota en `fuentes.json`. Así podés act
 - En producción: [fuentes.json en main](https://github.com/tadeoallende/repos-app/blob/main/fuentes.json)
 - Para probar: [fuentes.json en la rama de prueba](https://github.com/tadeoallende/repos-app/blob/chatgpt/prueba-acceso-2026-10-21-3/fuentes.json)
 
-Editá el archivo en la rama que usa la app que querés configurar. La URL predeterminada de configuración remota de la APK apunta a `main/fuentes.json`.
+Editá el archivo en la rama que usa la app que querés configurar. El workflow de compilación apunta a `fuentes.json` de la misma rama que se está probando; así una prueba en la rama de trabajo no hereda el interruptor de producción.
 
 ## Mantener IPTV-org
 
@@ -35,7 +35,7 @@ Editá el archivo en la rama que usa la app que querés configurar. La URL prede
 }
 ```
 
-La app deja de consultar esa fuente y conserva los canales personales y las fuentes de respaldo que estén configuradas.
+La app deja de consultar esa fuente y pasa al catálogo personal; si este tampoco tiene canales válidos, prueba las fuentes heredadas que estén configuradas.
 
 ## Usar otro proveedor
 
@@ -64,4 +64,4 @@ La app obtiene esta configuración cuando carga o vuelve a cargar el catálogo d
 - `CHANNELS_URL`: fuente adicional de canales compatible con el lector del proyecto.
 - `EVENTS_URL`: fuente adicional de eventos/canales deportivos.
 
-La configuración remota selecciona la fuente principal; no reemplaza ni desactiva automáticamente esos catálogos complementarios.
+La prioridad es exclusiva: fuente principal; si no produce canales válidos, catálogo personal; si tampoco está disponible, fuente heredada de canales y, por último, eventos deportivos. La app no concatena el catálogo personal a una fuente principal que ya funciona.

@@ -22,8 +22,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # This build uses only the personal JSON catalogue as its channel source.
-      ORG_GRADLE_PROJECT_IPTV_ORG_URL: 'disabled'
+      # Use the config from the same branch to test the new source without changing main.
+      ORG_GRADLE_PROJECT_IPTV_ORG_URL: 'https://iptv-org.github.io/iptv/index.m3u'
+      ORG_GRADLE_PROJECT_REMOTE_SOURCES_CONFIG_URL: 'https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/${{ github.ref_name }}/fuentes.json'
       ORG_GRADLE_PROJECT_CHANNELS_URL: ''
       ORG_GRADLE_PROJECT_EVENTS_URL: ''
       ORG_GRADLE_PROJECT_CUSTOM_CHANNELS_URL: 'https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json'

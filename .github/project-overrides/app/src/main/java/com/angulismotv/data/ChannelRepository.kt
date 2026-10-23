@@ -24,7 +24,7 @@ data class LoadResult(
     val sourceName: String? = null
 )
 
-/** Loads the regional IPTV-org catalogue plus the personal catalogue, keeping legacy fallbacks. */
+/** Loads one preferred catalogue and tries the next tier only when the current tier is unusable. */
 object ChannelRepository {
     private val iptvOrgDataSource by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { IptvOrgDataSource() }
     private val fallbackDataSource by lazy(LazyThreadSafetyMode.SYNCHRONIZED) { ChannelFeedDataSource() }
@@ -64,28 +64,34 @@ object ChannelRepository {
         }.onFailure { Log.w(TAG, "No se pudo leer la caché local (" + it.javaClass.simpleName + ")") }.getOrNull()
     }
 
-    suspend fun loadAll(context: Context? = null): LoadResult = coroutineScope {
-        // Fetch the regional catalogue and user-maintained feed concurrently.
-        val primaryDeferred = async { loadPrimarySource(context) }
-        val personalDeferred = async { loadPersonalSource() }
-        val primary = primaryDeferred.await()
-        val personal = personalDeferred.await()
-
+    suspend fun loadAll(context: Context? = null): LoadResult {
+        // Use the preferred catalogue on its own. Download fallback feeds only when the
+        // primary source is disabled, fails, or has no usable channels after regional filtering.
+        val primary = loadPrimarySource(context)
         if (primary.channels.isNotEmpty()) {
-            val merged = withContext(Dispatchers.Default) {
-                (primary.channels + personal.channels).distinctChannels()
-            }
-            if (context != null && merged.isNotEmpty()) saveCache(context, merged)
-            Log.i(TAG, "Canales cargados: fuente principal=" + primary.channels.size + ", propios=" + personal.channels.size)
-            return@coroutineScope LoadResult(
-                channels = merged,
-                partialFailure = personal.url.isNotBlank() && personal.result.isFailure,
-                sourceName = if (personal.channels.isNotEmpty()) primary.name + " + canales propios" else primary.name
+            if (context != null) saveCache(context, primary.channels)
+            Log.i(TAG, "Canales cargados desde ${primary.name}: ${primary.channels.size}")
+            return LoadResult(
+                channels = primary.channels,
+                sourceName = primary.name.ifBlank { "Fuente principal" }
             )
         }
 
         logPrimarySourceFailure(primary)
-        loadFallbackSources(primary, personal, context)
+
+        val personal = loadPersonalSource()
+        if (personal.channels.isNotEmpty()) {
+            if (context != null) saveCache(context, personal.channels)
+            val primaryUnavailable = primary.isUnavailable()
+            Log.i(TAG, "Se usa el catálogo personal como respaldo: ${personal.channels.size} canales")
+            return LoadResult(
+                channels = personal.channels,
+                partialFailure = primaryUnavailable,
+                sourceName = if (primaryUnavailable) "Canales propios (respaldo)" else "Canales propios"
+            )
+        }
+
+        return loadFallbackSources(primary, personal, context)
     }
 
     private suspend fun loadPrimarySource(context: Context?): SourceLoad {
@@ -119,37 +125,71 @@ object ChannelRepository {
         }
     }
 
-    private suspend fun loadFallbackSources(primary: SourceLoad, personal: SourceLoad, context: Context?): LoadResult = coroutineScope {
+    private suspend fun loadFallbackSources(
+        primary: SourceLoad,
+        personal: SourceLoad,
+        context: Context?
+    ): LoadResult = coroutineScope {
         val channelsUrl = BuildConfig.CHANNELS_URL.trim()
         val eventsUrl = BuildConfig.EVENTS_URL.trim()
-        val direct = async { fallbackDataSource.load(channelsUrl, defaultCategory = "todos") }
-        val events = async { fallbackDataSource.load(eventsUrl, defaultCategory = "deportes") }
-        val results = listOf(direct.await(), events.await())
-        val legacyChannels = results.flatMap { it.getOrDefault(emptyList()) }
-        val channels = withContext(Dispatchers.Default) {
-            (legacyChannels + personal.channels).distinctChannels()
+        val channelsDeferred = async { fallbackDataSource.load(channelsUrl, defaultCategory = "todos") }
+        val eventsDeferred = async { fallbackDataSource.load(eventsUrl, defaultCategory = "deportes") }
+        val channelsResult = channelsDeferred.await()
+        val eventsResult = eventsDeferred.await()
+
+        val legacyChannels = withContext(Dispatchers.Default) {
+            channelsResult.getOrDefault(emptyList()).distinctChannels()
         }
+        val legacyEvents = withContext(Dispatchers.Default) {
+            eventsResult.getOrDefault(emptyList()).distinctChannels()
+        }
+        val legacyChannelSource = SourceLoad(channelsUrl, channelsResult, legacyChannels, "Catálogo alternativo")
+        val legacyEventSource = SourceLoad(eventsUrl, eventsResult, legacyEvents, "Eventos deportivos")
+        val selection = CatalogSourceSelectionPolicy.select(
+            primary = primary.channels,
+            personal = personal.channels,
+            legacyChannels = legacyChannelSource.channels,
+            legacyEvents = legacyEventSource.channels
+        )
+        val channels = selection.channels
+
         if (context != null && channels.isNotEmpty()) saveCache(context, channels)
-        val legacyFailure = (channelsUrl.isNotBlank() && results[0].isFailure) ||
-            (eventsUrl.isNotBlank() && results[1].isFailure)
-        val primaryFailed = primary.url.isNotBlank() && primary.result.isFailure
-        val personalFailed = personal.url.isNotBlank() && personal.result.isFailure
-        val anyConfigured = primary.url.isNotBlank() || channelsUrl.isNotBlank() ||
-            eventsUrl.isNotBlank() || personal.url.isNotBlank()
+
+        val primaryUnavailable = primary.isUnavailable()
+        val personalUnavailable = personal.isUnavailable()
+        val legacyChannelsUnavailable = legacyChannelSource.isUnavailable()
+        val legacyEventsUnavailable = legacyEventSource.isUnavailable()
+        val anyConfigured = listOf(primary.url, personal.url, channelsUrl, eventsUrl).any { it.isNotBlank() }
+        val anyUnavailable = primaryUnavailable || personalUnavailable ||
+            legacyChannelsUnavailable || legacyEventsUnavailable
+        val upstreamFailure = when (selection.source) {
+            CatalogSourceSelectionPolicy.Source.PERSONAL_FALLBACK -> primaryUnavailable
+            CatalogSourceSelectionPolicy.Source.LEGACY_CHANNELS ->
+                primaryUnavailable || personalUnavailable
+            CatalogSourceSelectionPolicy.Source.LEGACY_EVENTS ->
+                primaryUnavailable || personalUnavailable || legacyChannelsUnavailable
+            CatalogSourceSelectionPolicy.Source.PRIMARY,
+            CatalogSourceSelectionPolicy.Source.NONE -> false
+        }
 
         LoadResult(
             channels = channels,
-            failed = channels.isEmpty() && (primaryFailed || legacyFailure || personalFailed),
+            failed = channels.isEmpty() && anyConfigured && anyUnavailable,
             notConfigured = channels.isEmpty() && !anyConfigured,
-            partialFailure = channels.isNotEmpty() && (primaryFailed || legacyFailure || personalFailed),
-            sourceName = when {
-                legacyChannels.isNotEmpty() && personal.channels.isNotEmpty() -> "Fuentes de respaldo + canales propios"
-                personal.channels.isNotEmpty() -> "Canales propios"
-                legacyChannels.isNotEmpty() -> "Fuentes propias (respaldo)"
-                else -> null
+            partialFailure = channels.isNotEmpty() && upstreamFailure,
+            sourceName = when (selection.source) {
+                CatalogSourceSelectionPolicy.Source.PRIMARY -> primary.name.ifBlank { "Fuente principal" }
+                CatalogSourceSelectionPolicy.Source.PERSONAL_FALLBACK ->
+                    if (primaryUnavailable) "Canales propios (respaldo)" else "Canales propios"
+                CatalogSourceSelectionPolicy.Source.LEGACY_CHANNELS -> "Catálogo alternativo (respaldo)"
+                CatalogSourceSelectionPolicy.Source.LEGACY_EVENTS -> "Eventos deportivos (respaldo)"
+                CatalogSourceSelectionPolicy.Source.NONE -> null
             }
         )
     }
+
+    private fun SourceLoad.isUnavailable(): Boolean =
+        url.isNotBlank() && (result.isFailure || channels.isEmpty())
 
     private suspend fun saveCache(context: Context, channels: List<Channel>) = withContext(Dispatchers.IO) {
         runCatching {
