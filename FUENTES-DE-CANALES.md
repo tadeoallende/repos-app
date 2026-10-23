@@ -18,7 +18,7 @@ El archivo de prueba conserva el nombre de campo heredado `fuentePrincipal` por 
   "version": 1,
   "fuentePrincipal": {
     "habilitada": true,
-    "nombre": "IPTV-org (respaldo)",
+    "nombre": "IPTV-org",
     "url": "https://iptv-org.github.io/iptv/index.m3u"
   }
 }
