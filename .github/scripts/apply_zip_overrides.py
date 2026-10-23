@@ -1312,14 +1312,14 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         # La Activity conserva la orquestación; las transiciones visuales viven en su controlador.
         text = replace_once(
             text,
-            "package com.angulismotv\\n",
-            "package com.angulismotv\\n\\nimport com.angulismotv.player.PlayerControlsAnimator\\n",
+            "package com.angulismotv\n",
+            "package com.angulismotv\n\nimport com.angulismotv.player.PlayerControlsAnimator\n",
             "importar animador de controles"
         )
         if "private val playerControlsAnimator = PlayerControlsAnimator()" not in text:
-            class_header_pattern = re.compile(r"(?m)^class\\s+UnifiedPlayerActivity[^{]*\\{\\s*\\n")
+            class_header_pattern = re.compile(r"(?m)^class\s+UnifiedPlayerActivity[^{]*\{\s*\n")
             text, class_header_matches = class_header_pattern.subn(
-                lambda match: match.group(0) + "    private val playerControlsAnimator = PlayerControlsAnimator()\\n\\n",
+                lambda match: match.group(0) + "    private val playerControlsAnimator = PlayerControlsAnimator()\n\n",
                 text,
                 count=1
             )
