@@ -371,6 +371,8 @@ def update_xml():
     s = read(main).replace('android:layout_width="44dp" android:layout_height="44dp"', 'android:layout_width="@dimen/header_search_button_size_mobile" android:layout_height="@dimen/header_search_button_size_mobile"')
     s = re.sub(r'(<TextClock\b(?=[^>]*android:id="@\+id/header_clock")[^>]*?)\s+android:textColor="[^"]*"\s+android:textSize="[^"]*"\s+android:fontFamily="[^"]*"', r'\1 android:textAppearance="@style/TextAppearance.AngulismoTV.HeaderClock"', s, count=1)
     write(main, s)
+    # El reloj está en la jerarquía común, pero arranca oculto: solo el modo TV lo habilita.
+    set_view_attributes(main, {"header_clock": {"android:visibility": "gone"}})
 
     # Source ZIP had a stray non-XML wrapper at EOF, which prevents AAPT from parsing this layout.
     p = L / "fragment_channels_tv.xml"
@@ -405,6 +407,23 @@ def update_kotlin():
     }
     for a, b in repl.items():
         s = s.replace(a, b)
+
+    # La cabecera se comparte entre dispositivos, pero el reloj pertenece únicamente a TV.
+    for method, statement in (
+        ("    private fun setupTvHeader() {\n", "        binding.headerClock.visibility = View.VISIBLE\n"),
+        ("    private fun setupMobileHeader() {\n", "        binding.headerClock.visibility = View.GONE\n"),
+    ):
+        start = s.find(method)
+        if start < 0:
+            raise SystemExit(f"Missing header setup method: {method.strip()}")
+        next_method = s.find("\n    private fun ", start + len(method))
+        if next_method < 0:
+            next_method = len(s)
+        body = s[start:next_method]
+        if statement.strip() not in body:
+            insert_at = start + len(method)
+            s = s[:insert_at] + statement + s[insert_at:]
+
     write(p, s)
 
     p = U / "ChannelCategoryBarController.kt"
@@ -534,8 +553,9 @@ Botones de acción y transporte del reproductor, acción primaria, carga/error, 
 1. Ajustar primero un token común; crear una excepción por pantalla solo cuando sea necesaria.
 2. Mantener separado layout (estructura), styles (apariencia), drawables (fondos/estados) y Kotlin (comportamiento).
 3. En Android TV, el foco visible y la navegación D-pad son obligatorios.
-4. Conservar la reproducción, favoritos, recarga, pantalla completa, Cast, selección de fuente, orientación y navegación existentes.
-5. Mantener el vídeo en negro real; evitar blur, partículas y animaciones permanentes para no elevar el coste gráfico.
+4. Mostrar el reloj de la cabecera únicamente en Android TV; mantenerlo oculto en móvil.
+5. Conservar la reproducción, favoritos, recarga, pantalla completa, Cast, selección de fuente, orientación y navegación existentes.
+6. Mantener el vídeo en negro real; evitar blur, partículas y animaciones permanentes para no elevar el coste gráfico.
 
 Esta es una primera etapa incremental: prioriza los componentes repetidos y los valores más propensos a cambios globales. La extracción adicional de lógica de ChannelsFragment y UnifiedPlayerActivity debe hacerse separando responsabilidades con pruebas, no con una sustitución masiva.
 """)
