@@ -1356,6 +1356,72 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "ocultar controles"
         )
 
+        # La navegación lineal del foco de los controles se delega a un controlador propio.
+        text = replace_once(
+            text,
+            "import com.angulismotv.player.PlayerRemoteKeyRouter\n",
+            "import com.angulismotv.player.PlayerRemoteKeyRouter\nimport com.angulismotv.player.PlayerControlFocusController\n",
+            "importar controlador de foco del reproductor"
+        )
+        text = replace_once(
+            text,
+            "    private lateinit var playerControlStateController: PlayerControlStateController\n",
+            "    private lateinit var playerControlStateController: PlayerControlStateController\n"
+            "    private lateinit var playerControlFocusController: PlayerControlFocusController\n",
+            "declarar controlador de foco"
+        )
+        focus_controller_setup = """        playerControlFocusController = PlayerControlFocusController(
+            isTv = { isTV },
+            controlsVisible = { controlsVisible },
+            isPanelOpen = { isPanelOpen },
+            lastFocusedControlId = { lastFocusedControlId },
+            playerContainer = playerContainer,
+            controlsProvider = {
+                listOf(
+                    btnRewind,
+                    btnPlayPause,
+                    btnForward,
+                    btnMenu,
+                    mediaRouteButton,
+                    btnOptions,
+                    btnReloadStream,
+                    btnClose
+                )
+            },
+            resetAutoHideTimer = ::resetAutoHideTimer
+        )
+"""
+        text = replace_once(
+            text,
+            "        playerControlStateController = PlayerControlStateController(\n",
+            focus_controller_setup + "        playerControlStateController = PlayerControlStateController(\n",
+            "configurar controlador de foco"
+        )
+
+        focus_block_pattern = re.compile(
+            r"    /\*\*\n     \* Orden real de izquierda a derecha según activity_unified_player\.xml\..*?    private fun navigateControlsDown\(\) = navigateControlsRight\(\)\n",
+            re.S
+        )
+        focus_block_replacement = """    private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()
+
+    private fun updateControlFocusOrder() = playerControlFocusController.updateControlFocusOrder()
+
+    private fun requestPreferredControlFocus() = playerControlFocusController.requestPreferredControlFocus()
+
+    private fun navigateControlsRight() = playerControlFocusController.navigateRight()
+
+    private fun navigateControlsLeft() = playerControlFocusController.navigateLeft()
+
+    private fun navigateControlsUp() = navigateControlsLeft()
+    private fun navigateControlsDown() = navigateControlsRight()
+"""
+        text, focus_block_matches = focus_block_pattern.subn(
+            focus_block_replacement,
+            text,
+            count=1
+        )
+        if focus_block_matches != 1 and "private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()" not in text:
+            raise RuntimeError("No se pudo extraer la navegación de foco de UnifiedPlayerActivity")
     elif name == "app/src/main/java/com/angulismotv/MainActivity.kt":
         text = replace_once(text,
             "    private fun loadAllChannels() {\n        val generation = ++channelLoadGeneration\n        channelLoadJob?.cancel()\n",
