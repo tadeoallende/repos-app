@@ -7,6 +7,7 @@ on:
       - '.github/workflows/build.yml'
       - '.github/project-overrides/**'
       - '.github/scripts/apply_zip_overrides.py'
+      - '.github/scripts/apply_ui_design_system.py'
   workflow_dispatch:
 
 permissions:
@@ -32,20 +33,47 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Aplicar cambios sobre el ZIP base
+      - name: Preparar una sola raíz desde la copia más reciente
         run: |
           set -euo pipefail
-          ZIP="$(ls *.zip | head -1)"
-          echo "Usando: $ZIP"
-          python3 .github/scripts/apply_zip_overrides.py "$ZIP"
-          echo "SOURCE_ZIP=$ZIP" >> "$GITHUB_ENV"
-          unzip -q -o "$ZIP" -d proyecto
-          SETTINGS="$(find proyecto -name settings.gradle.kts | head -1)"
-          if [ -z "$SETTINGS" ]; then
-            echo "::error::No se encontró settings.gradle.kts dentro del ZIP."
+          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' -printf '%f\n' | sort | head -1)"
+          if [ -z "$ZIP" ]; then
+            echo "::error::No se encontró el ZIP fuente."
             exit 1
           fi
-          echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+          echo "Usando ZIP: $ZIP"
+          mkdir -p proyecto/original
+          unzip -q -o "$ZIP" -d proyecto/original
+
+          # El archivo cargado contiene una copia antigua y otra más reciente anidada.
+          SOURCE_ROOT="proyecto/original/AngulismoTV-limpio (1) (2)"
+          if [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
+            SOURCE_ROOT="$(find proyecto/original -mindepth 2 -name settings.gradle.kts -printf '%h\n' | sort | tail -1)"
+          fi
+          if [ -z "$SOURCE_ROOT" ] || [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
+            echo "::error::No se encontró la raíz Android de la copia más reciente."
+            find proyecto/original -name settings.gradle.kts -print
+            exit 1
+          fi
+          echo "Raíz seleccionada: $SOURCE_ROOT"
+
+          # Quitar un cierre residual que no pertenece a XML y rompe AAPT.
+          TV_LAYOUT="$SOURCE_ROOT/app/src/main/res/layout/fragment_channels_tv.xml"
+          if [ -f "$TV_LAYOUT" ]; then
+            sed -i 's#</document_content>##g' "$TV_LAYOUT"
+          fi
+
+          # Aplanar la versión elegida. Así los overlays existentes apuntan a los
+          # archivos correctos y no se compila accidentalmente la copia anterior.
+          (cd "$SOURCE_ROOT" && zip -qr "$GITHUB_WORKSPACE/project-base.zip" . \
+            -x './.gradle/*' './.idea/*' './build/*' './app/build/*' './local.properties' './*.zip')
+
+          python3 .github/scripts/apply_zip_overrides.py "$GITHUB_WORKSPACE/project-base.zip"
+          mkdir -p proyecto/compilacion
+          unzip -q -o "$GITHUB_WORKSPACE/project-base.zip" -d proyecto/compilacion
+          PROJECT_DIR="$GITHUB_WORKSPACE/proyecto/compilacion"
+          python3 .github/scripts/apply_ui_design_system.py "$PROJECT_DIR"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
@@ -84,6 +112,13 @@ jobs:
       # dentro del runner para que builds simultáneos no compitan al hacer push
       # del mismo archivo binario a la rama.
 
+      - name: Empaquetar el proyecto normalizado
+        run: |
+          set -euo pipefail
+          cd "$PROJECT_DIR"
+          zip -qr "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip" . \
+            -x './.gradle/*' './.idea/*' './build/*' './app/build/*' './local.properties' './*.zip'
+
       - name: Guardar APK para las pruebas
         uses: actions/upload-artifact@v4
         with:
@@ -91,15 +126,26 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Publicar APK en Releases
-        if: github.ref == 'refs/heads/main'
+      - name: Guardar fuentes estandarizadas
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuentes-ui-estandarizadas
+          path: AngulismoTV-ui-estandarizado.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publicar APK y fuentes en Releases
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/chatgpt/prueba-acceso-2026-10-21-3'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="$(find "$PROJECT_DIR" -path '*outputs/apk/debug/*.apk' | head -1)"
-          gh release create "build-${{ github.run_number }}" "$APK" \
-            --title "Build ${{ github.run_number }}" \
-            --notes "APK debug generado automáticamente." \
+          set -euo pipefail
+          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          test -s "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip"
+          gh release create "build-${{ github.run_number }}" "$APK" "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip" \
+            --title "AngulismoTV build ${{ github.run_number }} (UI estandarizada)" \
+            --notes "APK debug y fuentes con sistema de diseño visual compartido." \
             --prerelease
 
       - name: Resumen de errores
