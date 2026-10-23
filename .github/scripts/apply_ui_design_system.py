@@ -233,7 +233,10 @@ def set_view_attributes(path, updates):
             tag, count = attr_pat.subn(lambda _: f'{attr}="{value}"', tag, count=1)
             if count == 0 and attr == "android:visibility":
                 # A layout may rely on the Android default; visibility is safe to make explicit.
-                tag = tag[:-1] + f' {attr}="{value}">'
+                if tag.endswith("/>"):
+                    tag = tag[:-2] + f' {attr}="{value}" />'
+                else:
+                    tag = tag[:-1] + f' {attr}="{value}">'
                 continue
             if count != 1:
                 raise SystemExit(f"Missing attribute {attr} on {view_id} in {path}")
