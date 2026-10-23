@@ -1718,7 +1718,7 @@ def apply_ui_redesign(name: str, text: str) -> str:
         )
         # Retirar métodos por límites estructurales para no depender de comentarios ni formato del ZIP.
         catalog_method_pattern = re.compile(
-            r"    private fun resolvePlayerLaunchCatalog\\(channel: Channel\\): PlayerLaunchCatalog \\{\\n.*?\\n    \\}\\n\\n",
+            r"    private fun resolvePlayerLaunchCatalog\(channel: Channel\): PlayerLaunchCatalog \{\n.*?\n    \}\n\n",
             re.S
         )
         text, catalog_method_count = catalog_method_pattern.subn("", text, count=1)
@@ -1726,7 +1726,7 @@ def apply_ui_redesign(name: str, text: str) -> str:
             raise RuntimeError("No se pudo retirar el resolvedor local del catálogo")
 
         intent_method_pattern = re.compile(
-            r"    private fun createPlayerLaunchIntent\\(\\n.*?\\n    \\}\\n\\n",
+            r"    private fun createPlayerLaunchIntent\(\n.*?\n    \}\n\n",
             re.S
         )
         text, intent_method_count = intent_method_pattern.subn("", text, count=1)
