@@ -1517,8 +1517,8 @@ def apply_ui_redesign(name: str, text: str) -> str:
         # Keep the inline-to-fullscreen ownership transfer outside the Fragment.
         text = replace_once(
             text,
-            "from com.angulismotv.player.InlinePlayerHandoff\n",
-            "from com.angulismotv.player.InlinePlayerHandoff\n"
+            "package com.angulismotv.fragments\n",
+            "package com.angulismotv.fragments\n"
             "import com.angulismotv.player.InlinePlayerTransferController\n"
             "import com.angulismotv.player.InlinePlayerTransferPlan\n",
             "importar controlador de traspaso"
