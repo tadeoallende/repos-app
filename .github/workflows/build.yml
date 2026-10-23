@@ -144,8 +144,9 @@ jobs:
           test -s "$APK"
           test -s "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip"
           gh release create "build-${{ github.run_number }}" "$APK" "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip" \
+            --target "$GITHUB_SHA" \
             --title "AngulismoTV build ${{ github.run_number }} (UI estandarizada)" \
-            --notes "APK debug y fuentes con sistema de diseño visual compartido." \
+            --notes "APK debug y fuentes con sistema de diseño visual compartido. Compilado desde el commit $GITHUB_SHA." \
             --prerelease
 
       - name: Resumen de errores
@@ -182,6 +183,7 @@ jobs:
         run: |
           cat > prueba.sh <<'SCRIPT'
           #!/bin/bash
+          set -euo pipefail
           adb install -r apk/app-debug.apk
           adb logcat -c
           adb shell am start -W -n com.angulismotv/.MainActivity
@@ -189,6 +191,16 @@ jobs:
           adb logcat -d > full.log
           adb exec-out screencap -p > screen.png
           adb shell pidof com.angulismotv > pid.txt || true
+
+          if [ ! -s pid.txt ]; then
+            echo "::error::AngulismoTV no sigue abierta en Android API ${{ matrix.api }}."
+            exit 1
+          fi
+          if grep -q "FATAL EXCEPTION" full.log; then
+            echo "::error::Se detectó una excepción fatal en Android API ${{ matrix.api }}."
+            grep -A30 "FATAL EXCEPTION" full.log | head -80 || true
+            exit 1
+          fi
           SCRIPT
 
       - name: Ejecutar la app en el emulador
@@ -225,6 +237,7 @@ jobs:
           path: |
             full.log
             screen.png
+            pid.txt
           if-no-files-found: ignore
   probar-en-emulador-tv:
     needs: build
