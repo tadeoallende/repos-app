@@ -176,9 +176,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "        val type = selection.type\n",
             "delegar resolución de fuente inline"
         )
-        inline_source_method_pattern = re.compile(
+        regex_module = __import__("re")
+        inline_source_method_pattern = regex_module.compile(
             r"    private fun resolveInlinePlaybackSource\(channel: Channel, sourceIndex: Int\): Pair<String, String>\? \{\n.*?\n    \}\n\n",
-            re.S
+            regex_module.S
         )
         text, inline_source_method_count = inline_source_method_pattern.subn("", text, count=1)
         if inline_source_method_count != 1:
