@@ -1338,7 +1338,11 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             return source[:start] + region + source[end:]
 
         visible_pair = "        controlsOverlay.visibility = View.VISIBLE\n        bottomControls.visibility = View.VISIBLE\n"
-        reveal_pair = "        revealControlView(controlsOverlay, slide = false)\n        revealControlView(bottomControls, slide = true)\n        if (!isTV) revealControlView(findViewById(R.id.center_transport_controls_container), slide = false)"
+        reveal_pair = "\n".join((
+            "        revealControlView(controlsOverlay, slide = false)",
+            "        revealControlView(bottomControls, slide = true)",
+            "        if (!isTV) revealControlView(findViewById(R.id.center_transport_controls_container), slide = false)",
+        )) + "\n"
         text = replace_in_method(
             text, "    private fun showControls() {", "    private fun showControlsTemporarily() {",
             visible_pair, reveal_pair, "mostrar controles"
