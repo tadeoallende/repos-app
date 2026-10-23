@@ -1365,8 +1365,8 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         )
         text = replace_once(
             text,
-            "    private lateinit var playerControlStateController: PlayerControlStateController\n",
-            "    private lateinit var playerControlStateController: PlayerControlStateController\n"
+            "    private var controlsVisible = false\n",
+            "    private var controlsVisible = false\n"
             "    private lateinit var playerControlFocusController: PlayerControlFocusController\n",
             "declarar controlador de foco"
         )
@@ -1393,8 +1393,8 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 """
         text = replace_once(
             text,
-            "        playerControlStateController = PlayerControlStateController(\n",
-            focus_controller_setup + "        playerControlStateController = PlayerControlStateController(\n",
+            "        playerControlsLayoutController.apply(resources.configuration.orientation)\n",
+            "        playerControlsLayoutController.apply(resources.configuration.orientation)\n" + focus_controller_setup,
             "configurar controlador de foco"
         )
 
