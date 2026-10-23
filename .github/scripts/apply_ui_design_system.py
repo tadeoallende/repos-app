@@ -214,7 +214,7 @@ def update_xml():
     # to mean "no explicit background", so remove the attribute instead.
     for layout in L.glob("*.xml"):
         s = read(layout)
-        s = re.sub(r'\\s+android:background=""', "", s)
+        s = re.sub(r'\s+android:background=""', "", s)
         write(layout, s)
 
 
