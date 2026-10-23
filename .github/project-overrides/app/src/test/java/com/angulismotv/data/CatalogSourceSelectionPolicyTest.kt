@@ -5,36 +5,36 @@ import org.junit.Test
 
 class CatalogSourceSelectionPolicyTest {
     @Test
-    fun primaryCatalogueWinsWithoutAppendingPersonalChannels() {
+    fun personalCatalogueIsAuthoritativeAndDoesNotAppendIptvOrgChannels() {
         val selection = CatalogSourceSelectionPolicy.select(
-            primary = listOf("primary-1", "primary-2"),
-            personal = listOf("personal-1"),
+            personal = listOf("personal-1", "personal-2"),
+            iptvOrgFallback = listOf("iptv-1"),
             legacyChannels = listOf("legacy-1"),
             legacyEvents = listOf("event-1")
         )
 
-        assertEquals(CatalogSourceSelectionPolicy.Source.PRIMARY, selection.source)
-        assertEquals(listOf("primary-1", "primary-2"), selection.channels)
+        assertEquals(CatalogSourceSelectionPolicy.Source.PERSONAL, selection.source)
+        assertEquals(listOf("personal-1", "personal-2"), selection.channels)
     }
 
     @Test
-    fun personalCatalogueIsUsedOnlyWhenPrimaryIsEmpty() {
+    fun iptvOrgIsUsedOnlyWhenPersonalCatalogueIsEmpty() {
         val selection = CatalogSourceSelectionPolicy.select(
-            primary = emptyList(),
-            personal = listOf("personal-1", "personal-2"),
+            personal = emptyList(),
+            iptvOrgFallback = listOf("iptv-1", "iptv-2"),
             legacyChannels = listOf("legacy-1"),
             legacyEvents = listOf("event-1")
         )
 
-        assertEquals(CatalogSourceSelectionPolicy.Source.PERSONAL_FALLBACK, selection.source)
-        assertEquals(listOf("personal-1", "personal-2"), selection.channels)
+        assertEquals(CatalogSourceSelectionPolicy.Source.IPTV_ORG_FALLBACK, selection.source)
+        assertEquals(listOf("iptv-1", "iptv-2"), selection.channels)
     }
 
     @Test
     fun legacyChannelFeedIsTheNextFallback() {
         val selection = CatalogSourceSelectionPolicy.select(
-            primary = emptyList(),
             personal = emptyList(),
+            iptvOrgFallback = emptyList(),
             legacyChannels = listOf("legacy-1"),
             legacyEvents = listOf("event-1")
         )
@@ -46,8 +46,8 @@ class CatalogSourceSelectionPolicyTest {
     @Test
     fun eventsFeedIsUsedOnlyWhenEveryEarlierFeedIsEmpty() {
         val selection = CatalogSourceSelectionPolicy.select(
-            primary = emptyList(),
             personal = emptyList(),
+            iptvOrgFallback = emptyList(),
             legacyChannels = emptyList(),
             legacyEvents = listOf("event-1")
         )
@@ -59,8 +59,8 @@ class CatalogSourceSelectionPolicyTest {
     @Test
     fun allEmptyFeedsProduceNoCatalogue() {
         val selection = CatalogSourceSelectionPolicy.select<String>(
-            primary = emptyList(),
             personal = emptyList(),
+            iptvOrgFallback = emptyList(),
             legacyChannels = emptyList(),
             legacyEvents = emptyList()
         )

@@ -1,13 +1,13 @@
 package com.angulismotv.data
 
 /**
- * Resolves catalogue precedence without combining otherwise independent feeds.
- * A lower-priority feed is selected only when every higher-priority feed is empty.
+ * Resolves catalogue precedence without combining independent feeds.
+ * The personal catalogue is authoritative; IPTV-org is the first fallback.
  */
 internal object CatalogSourceSelectionPolicy {
     enum class Source {
-        PRIMARY,
-        PERSONAL_FALLBACK,
+        PERSONAL,
+        IPTV_ORG_FALLBACK,
         LEGACY_CHANNELS,
         LEGACY_EVENTS,
         NONE
@@ -19,13 +19,13 @@ internal object CatalogSourceSelectionPolicy {
     )
 
     fun <T> select(
-        primary: List<T>,
         personal: List<T>,
+        iptvOrgFallback: List<T>,
         legacyChannels: List<T>,
         legacyEvents: List<T>
     ): Selection<T> = when {
-        primary.isNotEmpty() -> Selection(Source.PRIMARY, primary)
-        personal.isNotEmpty() -> Selection(Source.PERSONAL_FALLBACK, personal)
+        personal.isNotEmpty() -> Selection(Source.PERSONAL, personal)
+        iptvOrgFallback.isNotEmpty() -> Selection(Source.IPTV_ORG_FALLBACK, iptvOrgFallback)
         legacyChannels.isNotEmpty() -> Selection(Source.LEGACY_CHANNELS, legacyChannels)
         legacyEvents.isNotEmpty() -> Selection(Source.LEGACY_EVENTS, legacyEvents)
         else -> Selection(Source.NONE, emptyList())

@@ -65,33 +65,34 @@ object ChannelRepository {
     }
 
     suspend fun loadAll(context: Context? = null): LoadResult {
-        // Use the preferred catalogue on its own. Download fallback feeds only when the
-        // primary source is disabled, fails, or has no usable channels after regional filtering.
-        val primary = loadPrimarySource(context)
-        if (primary.channels.isNotEmpty()) {
-            if (context != null) saveCache(context, primary.channels)
-            Log.i(TAG, "Canales cargados desde ${primary.name}: ${primary.channels.size}")
-            return LoadResult(
-                channels = primary.channels,
-                sourceName = primary.name.ifBlank { "Fuente principal" }
-            )
-        }
-
-        logPrimarySourceFailure(primary)
-
+        // El catálogo personal es la fuente principal. Las fuentes externas se consultan
+        // solamente cuando no entrega canales utilizables.
         val personal = loadPersonalSource()
         if (personal.channels.isNotEmpty()) {
             if (context != null) saveCache(context, personal.channels)
-            val primaryUnavailable = primary.isUnavailable()
-            Log.i(TAG, "Se usa el catálogo personal como respaldo: ${personal.channels.size} canales")
+            Log.i(TAG, "Canales cargados desde el catálogo personal: ${personal.channels.size}")
             return LoadResult(
                 channels = personal.channels,
-                partialFailure = primaryUnavailable,
-                sourceName = if (primaryUnavailable) "Canales propios (respaldo)" else "Canales propios"
+                sourceName = "Canales propios"
             )
         }
 
-        return loadFallbackSources(primary, personal, context)
+        logPersonalSourceFailure(personal)
+
+        val iptvOrgFallback = loadPrimarySource(context)
+        if (iptvOrgFallback.channels.isNotEmpty()) {
+            if (context != null) saveCache(context, iptvOrgFallback.channels)
+            val personalUnavailable = personal.isUnavailable()
+            Log.i(TAG, "Se usa IPTV-org como respaldo: ${iptvOrgFallback.channels.size} canales")
+            return LoadResult(
+                channels = iptvOrgFallback.channels,
+                partialFailure = personalUnavailable,
+                sourceName = "${iptvOrgFallback.name.ifBlank { "IPTV-org" }} (respaldo)"
+            )
+        }
+
+        logIptvOrgFallbackFailure(iptvOrgFallback)
+        return loadFallbackSources(iptvOrgFallback, personal, context)
     }
 
     private suspend fun loadPrimarySource(context: Context?): SourceLoad {
@@ -117,16 +118,24 @@ object ChannelRepository {
         return SourceLoad(url, result, channels)
     }
 
-    private fun logPrimarySourceFailure(primary: SourceLoad) {
-        if (primary.result.isFailure) {
-            Log.w(TAG, "La fuente principal no está disponible; se intentarán las fuentes de respaldo")
-        } else if (primary.url.isNotBlank()) {
-            Log.w(TAG, "La fuente principal no devolvió canales válidos; se intentarán las fuentes de respaldo")
+    private fun logPersonalSourceFailure(personal: SourceLoad) {
+        if (personal.result.isFailure) {
+            Log.w(TAG, "El catálogo personal no está disponible; se intentará IPTV-org como respaldo")
+        } else if (personal.url.isNotBlank() && personal.channels.isEmpty()) {
+            Log.w(TAG, "El catálogo personal no devolvió canales válidos; se intentará IPTV-org como respaldo")
+        }
+    }
+
+    private fun logIptvOrgFallbackFailure(source: SourceLoad) {
+        if (source.result.isFailure) {
+            Log.w(TAG, "IPTV-org no está disponible; se intentarán las fuentes heredadas de respaldo")
+        } else if (source.url.isNotBlank() && source.channels.isEmpty()) {
+            Log.w(TAG, "IPTV-org no devolvió canales válidos; se intentarán las fuentes heredadas")
         }
     }
 
     private suspend fun loadFallbackSources(
-        primary: SourceLoad,
+        iptvOrgFallback: SourceLoad,
         personal: SourceLoad,
         context: Context?
     ): LoadResult = coroutineScope {
@@ -146,8 +155,8 @@ object ChannelRepository {
         val legacyChannelSource = SourceLoad(channelsUrl, channelsResult, legacyChannels, "Catálogo alternativo")
         val legacyEventSource = SourceLoad(eventsUrl, eventsResult, legacyEvents, "Eventos deportivos")
         val selection = CatalogSourceSelectionPolicy.select(
-            primary = primary.channels,
             personal = personal.channels,
+            iptvOrgFallback = iptvOrgFallback.channels,
             legacyChannels = legacyChannelSource.channels,
             legacyEvents = legacyEventSource.channels
         )
@@ -155,20 +164,21 @@ object ChannelRepository {
 
         if (context != null && channels.isNotEmpty()) saveCache(context, channels)
 
-        val primaryUnavailable = primary.isUnavailable()
         val personalUnavailable = personal.isUnavailable()
+        val iptvUnavailable = iptvOrgFallback.isUnavailable()
         val legacyChannelsUnavailable = legacyChannelSource.isUnavailable()
         val legacyEventsUnavailable = legacyEventSource.isUnavailable()
-        val anyConfigured = listOf(primary.url, personal.url, channelsUrl, eventsUrl).any { it.isNotBlank() }
-        val anyUnavailable = primaryUnavailable || personalUnavailable ||
+        val anyConfigured = listOf(personal.url, iptvOrgFallback.url, channelsUrl, eventsUrl)
+            .any { it.isNotBlank() }
+        val anyUnavailable = personalUnavailable || iptvUnavailable ||
             legacyChannelsUnavailable || legacyEventsUnavailable
         val upstreamFailure = when (selection.source) {
-            CatalogSourceSelectionPolicy.Source.PERSONAL_FALLBACK -> primaryUnavailable
+            CatalogSourceSelectionPolicy.Source.PERSONAL -> false
+            CatalogSourceSelectionPolicy.Source.IPTV_ORG_FALLBACK -> personalUnavailable
             CatalogSourceSelectionPolicy.Source.LEGACY_CHANNELS ->
-                primaryUnavailable || personalUnavailable
+                personalUnavailable || iptvUnavailable
             CatalogSourceSelectionPolicy.Source.LEGACY_EVENTS ->
-                primaryUnavailable || personalUnavailable || legacyChannelsUnavailable
-            CatalogSourceSelectionPolicy.Source.PRIMARY,
+                personalUnavailable || iptvUnavailable || legacyChannelsUnavailable
             CatalogSourceSelectionPolicy.Source.NONE -> false
         }
 
@@ -178,9 +188,9 @@ object ChannelRepository {
             notConfigured = channels.isEmpty() && !anyConfigured,
             partialFailure = channels.isNotEmpty() && upstreamFailure,
             sourceName = when (selection.source) {
-                CatalogSourceSelectionPolicy.Source.PRIMARY -> primary.name.ifBlank { "Fuente principal" }
-                CatalogSourceSelectionPolicy.Source.PERSONAL_FALLBACK ->
-                    if (primaryUnavailable) "Canales propios (respaldo)" else "Canales propios"
+                CatalogSourceSelectionPolicy.Source.PERSONAL -> "Canales propios"
+                CatalogSourceSelectionPolicy.Source.IPTV_ORG_FALLBACK ->
+                    "${iptvOrgFallback.name.ifBlank { "IPTV-org" }} (respaldo)"
                 CatalogSourceSelectionPolicy.Source.LEGACY_CHANNELS -> "Catálogo alternativo (respaldo)"
                 CatalogSourceSelectionPolicy.Source.LEGACY_EVENTS -> "Eventos deportivos (respaldo)"
                 CatalogSourceSelectionPolicy.Source.NONE -> null
