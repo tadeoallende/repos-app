@@ -111,9 +111,9 @@
           "drmKey": null
         },
         {
-          "name": "Reproductor 2",
-          "iframe": "http://201.217.246.42:44310/Live/e35048d37817ddfa725d9d32ceb8c7f3/telefe.playlist.m3u8",
-          "streamType": "hls",
+          "name": "Reproductor 2 (WebView)",
+          "iframe": "https://la18hd.su/vivo/canales.php?stream=telefe",
+          "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
@@ -948,6 +948,28 @@
         }
       ]
     },
+        {
+      "name": "ESPN 4",
+      "logo": "https://bestleague.pl/img/espn4.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://138.59.227.20:8000/play/a09a/index.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
     {
       "name": "ESPN Premium",
       "logo": "https://bestleague.pl/img/espnpr.webp",
@@ -1002,6 +1024,28 @@
           "name": "Reproductor 2 (WebView, probablemente necesites un mouse)",
           "iframe": "https://tvf90.com/5.php?stream=tntsports",
           "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+        {
+      "name": "NBA TV (USA)",
+      "logo": "",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://23.237.104.106:8080/USA_NBA/index.m3u8",
+          "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
