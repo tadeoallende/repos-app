@@ -1716,15 +1716,22 @@ def apply_ui_redesign(name: str, text: str) -> str:
             "            ?: InlinePlayerTransferPlan.NONE\n",
             "delegar decisión de traspaso"
         )
-        old_resolve_method = "    private fun resolvePlayerLaunchCatalog(channel: Channel): PlayerLaunchCatalog {\n        val matchingIndex = originalChannels.indexOfFirst { ChannelIdentity.same(it, channel) }\n        // A stale channel should be appended, not silently replaced by the first catalog item.\n        val channels = if (matchingIndex >= 0) originalChannels else originalChannels + channel\n        val index = if (matchingIndex >= 0) matchingIndex else channels.lastIndex\n        return PlayerLaunchCatalog(channels, index)\n    }\n\n"
-        old_create_method = "    private fun createPlayerLaunchIntent(\n        channel: Channel,\n        catalog: PlayerLaunchCatalog,\n        catalogToken: Long,\n        fromInline: Boolean,\n        handoff: InlinePlayerTransferPlan\n    ): Intent = Intent(requireContext(), UnifiedPlayerActivity::class.java).apply {\n        // Avoid putting the whole catalog in the Intent: Binder bundles have a size limit.\n        putExtra(\"channel_catalog_token\", catalogToken)\n        putExtra(\"current_channel\", channel)\n        putExtra(\"channel_index\", catalog.channelIndex)\n        putExtra(\"channel_name\", channel.name)\n        putExtra(\"channel_logo\", channel.logo)\n        putExtra(\"stream_url\", channel.streamUrl)\n        putExtra(\"stream_type\", channel.streamType ?: StreamType.AUTO)\n        putExtra(\"from_inline_player\", fromInline)\n        putExtra(\"force_landscape_fullscreen\", fromInline && !isTV)\n        putExtra(\"source_index\", inlineSourceIndex)\n        putExtra(\"reuse_inline_player_session\", handoff.transferNativePlayer)\n        putExtra(\"reuse_inline_webview_session\", handoff.transferWebView)\n    }\n\n"
-        for obsolete_block, label in (
-            (old_resolve_method, "retirar el resolvedor local de catálogo"),
-            (old_create_method, "retirar el constructor local del Intent"),
-        ):
-            if obsolete_block not in text:
-                raise RuntimeError("No se pudo " + label)
-            text = text.replace(obsolete_block, "", 1)
+        # Retirar métodos por límites estructurales para no depender de comentarios ni formato del ZIP.
+        catalog_method_pattern = re.compile(
+            r"    private fun resolvePlayerLaunchCatalog\\(channel: Channel\\): PlayerLaunchCatalog \\{\\n.*?\\n    \\}\\n\\n",
+            re.S
+        )
+        text, catalog_method_count = catalog_method_pattern.subn("", text, count=1)
+        if catalog_method_count != 1:
+            raise RuntimeError("No se pudo retirar el resolvedor local del catálogo")
+
+        intent_method_pattern = re.compile(
+            r"    private fun createPlayerLaunchIntent\\(\\n.*?\\n    \\}\\n\\n",
+            re.S
+        )
+        text, intent_method_count = intent_method_pattern.subn("", text, count=1)
+        if intent_method_count != 1:
+            raise RuntimeError("No se pudo retirar el constructor local del Intent")
 
         text = replace_once(
             text,
