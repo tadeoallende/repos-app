@@ -1573,6 +1573,12 @@ def apply_ui_redesign(name: str, text: str) -> str:
             "            ?: InlinePlayerTransferPlan.NONE\n",
             "delegar decisión de traspaso"
         )
+        text = replace_once(
+            text,
+            "        handoff: InlineHandoffPlan\n",
+            "        handoff: InlinePlayerTransferPlan\n",
+            "actualizar tipo del plan de traspaso"
+        )
         old_handoff = """    private fun prepareInlineHandoff(channel: Channel, fromInline: Boolean): InlineHandoffPlan {
         isLaunchingFullscreen = fromInline
         inlineRecoveryController?.stopWatchdog()
