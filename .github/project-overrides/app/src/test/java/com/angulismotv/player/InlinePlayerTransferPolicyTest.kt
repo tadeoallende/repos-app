@@ -1,6 +1,7 @@
 package com.angulismotv.player
 
 import com.angulismotv.models.StreamType
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -14,6 +15,7 @@ class InlinePlayerTransferPolicyTest {
             streamUrl = "https://example.test/live.m3u8",
             streamType = StreamType.HLS
         )
+        assertEquals(InlinePlayerTransferMode.NATIVE_PLAYER, plan.mode)
         assertTrue(plan.transferNativePlayer)
         assertFalse(plan.transferWebView)
     }
@@ -28,6 +30,7 @@ class InlinePlayerTransferPolicyTest {
             webViewVisible = true,
             webViewHasUrl = true
         )
+        assertEquals(InlinePlayerTransferMode.WEB_VIEW, plan.mode)
         assertFalse(plan.transferNativePlayer)
         assertTrue(plan.transferWebView)
     }
@@ -50,6 +53,8 @@ class InlinePlayerTransferPolicyTest {
             webViewVisible = true,
             webViewHasUrl = false
         )
+        assertEquals(InlinePlayerTransferMode.NONE, hidden.mode)
+        assertEquals(InlinePlayerTransferMode.NONE, missingUrl.mode)
         assertFalse(hidden.transferWebView)
         assertFalse(missingUrl.transferWebView)
     }
@@ -64,6 +69,7 @@ class InlinePlayerTransferPolicyTest {
             webViewVisible = true,
             webViewHasUrl = true
         )
+        assertEquals(InlinePlayerTransferMode.NONE, plan.mode)
         assertFalse(plan.transferNativePlayer)
         assertFalse(plan.transferWebView)
     }
@@ -84,6 +90,8 @@ class InlinePlayerTransferPolicyTest {
             webViewVisible = true,
             webViewHasUrl = true
         )
+        assertEquals(InlinePlayerTransferMode.NONE, blank.mode)
+        assertEquals(InlinePlayerTransferMode.NONE, iframeWithNativePlayer.mode)
         assertFalse(blank.transferNativePlayer)
         assertFalse(blank.transferWebView)
         assertFalse(iframeWithNativePlayer.transferNativePlayer)

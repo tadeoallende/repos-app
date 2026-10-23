@@ -10,12 +10,29 @@ import com.google.android.exoplayer2.ExoPlayer
 /**
  * Describes which inline engine, if any, can be reused on the fullscreen screen.
  */
+internal enum class InlinePlayerTransferMode {
+    NONE,
+    NATIVE_PLAYER,
+    WEB_VIEW
+}
+
+/**
+ * A transfer has exactly one owner: the existing native player, the existing WebView, or neither.
+ * Computed flags preserve the small API already used by launch-intent construction.
+ */
 internal data class InlinePlayerTransferPlan(
-    val transferNativePlayer: Boolean,
-    val transferWebView: Boolean
+    val mode: InlinePlayerTransferMode
 ) {
+    val transferNativePlayer: Boolean
+        get() = mode == InlinePlayerTransferMode.NATIVE_PLAYER
+
+    val transferWebView: Boolean
+        get() = mode == InlinePlayerTransferMode.WEB_VIEW
+
     companion object {
-        val NONE = InlinePlayerTransferPlan(false, false)
+        val NONE = InlinePlayerTransferPlan(InlinePlayerTransferMode.NONE)
+        val NATIVE_PLAYER = InlinePlayerTransferPlan(InlinePlayerTransferMode.NATIVE_PLAYER)
+        val WEB_VIEW = InlinePlayerTransferPlan(InlinePlayerTransferMode.WEB_VIEW)
     }
 }
 
@@ -29,19 +46,19 @@ internal object InlinePlayerTransferPolicy {
         webViewVisible: Boolean,
         webViewHasUrl: Boolean
     ): InlinePlayerTransferPlan {
-        val transferNativePlayer = fromInline &&
-            nativePlayerAvailable &&
-            streamUrl.isNotBlank() &&
-            streamType != StreamType.IFRAME
+        if (!fromInline || streamUrl.isBlank()) return InlinePlayerTransferPlan.NONE
 
-        val transferWebView = fromInline &&
-            !nativePlayerAvailable &&
-            streamType == StreamType.IFRAME &&
-            streamUrl.isNotBlank() &&
-            webViewVisible &&
-            webViewHasUrl
-
-        return InlinePlayerTransferPlan(transferNativePlayer, transferWebView)
+        return if (streamType == StreamType.IFRAME) {
+            if (!nativePlayerAvailable && webViewVisible && webViewHasUrl) {
+                InlinePlayerTransferPlan.WEB_VIEW
+            } else {
+                InlinePlayerTransferPlan.NONE
+            }
+        } else if (nativePlayerAvailable) {
+            InlinePlayerTransferPlan.NATIVE_PLAYER
+        } else {
+            InlinePlayerTransferPlan.NONE
+        }
     }
 }
 
@@ -80,11 +97,17 @@ internal class InlinePlayerTransferController(
             webViewHasUrl = webView.url != null
         )
 
-        when {
-            plan.transferNativePlayer && player != null ->
-                offerNativePlayerToFullscreen(channel, player, streamUrl, streamType)
-            plan.transferWebView -> offerWebViewToFullscreen(channel, streamUrl)
-            else -> player?.pause()
+        when (plan.mode) {
+            InlinePlayerTransferMode.NATIVE_PLAYER -> {
+                // La política solo devuelve este modo cuando hay reproductor nativo disponible.
+                if (player != null) {
+                    offerNativePlayerToFullscreen(channel, player, streamUrl, streamType)
+                } else {
+                    player?.pause()
+                }
+            }
+            InlinePlayerTransferMode.WEB_VIEW -> offerWebViewToFullscreen(channel, streamUrl)
+            InlinePlayerTransferMode.NONE -> player?.pause()
         }
         webView.onPause()
         return plan
