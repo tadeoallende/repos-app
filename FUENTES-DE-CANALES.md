@@ -1,22 +1,24 @@
-# Cambiar la fuente principal de canales desde GitHub
+# Configurar el respaldo IPTV-org de AngulismoTV
 
-AngulismoTV consulta la configuración remota en `fuentes.json`. Así podés activar, desactivar o reemplazar la fuente principal sin compilar otra APK cada vez. La app necesita una compilación que ya incluya la función de configuración remota.
+El catálogo personal de `canales.json` es siempre la fuente principal. `fuentes.json` controla el respaldo IPTV-org, que solo se consulta si el catálogo personal falla o no entrega canales válidos. La app necesita una compilación que ya incluya la función de configuración remota.
 
-## Dónde editarla
+## Dónde editarlo
 
 - En producción: [fuentes.json en main](https://github.com/tadeoallende/repos-app/blob/main/fuentes.json)
 - Para probar: [fuentes.json en la rama de prueba](https://github.com/tadeoallende/repos-app/blob/chatgpt/prueba-acceso-2026-10-21-3/fuentes.json)
 
-Editá el archivo en la rama que usa la app que querés configurar. El workflow de compilación apunta a `fuentes.json` de la misma rama que se está probando; así una prueba en la rama de trabajo no hereda el interruptor de producción.
+Editá el archivo de la rama que usa la app que querés configurar. El workflow de compilación apunta a la configuración de la misma rama, así la prueba no hereda el interruptor de producción.
 
-## Mantener IPTV-org
+## Habilitar IPTV-org como respaldo
+
+El archivo de prueba conserva el nombre de campo heredado `fuentePrincipal` por compatibilidad; la app lo utiliza como proveedor alternativo después de probar el catálogo personal.
 
 ```json
 {
   "version": 1,
   "fuentePrincipal": {
     "habilitada": true,
-    "nombre": "IPTV-org",
+    "nombre": "IPTV-org (respaldo)",
     "url": "https://iptv-org.github.io/iptv/index.m3u"
   }
 }
@@ -35,33 +37,10 @@ Editá el archivo en la rama que usa la app que querés configurar. El workflow 
 }
 ```
 
-La app deja de consultar esa fuente y pasa al catálogo personal; si este tampoco tiene canales válidos, prueba las fuentes heredadas que estén configuradas.
+Desactivarlo no afecta el catálogo personal: `canales.json` sigue siendo la fuente principal. Si esa lista tampoco entrega canales válidos, se prueban las fuentes heredadas configuradas.
 
-## Usar otro proveedor
+## Usar otro proveedor como respaldo
 
-Reemplazá el nombre y la URL. La URL debe ser HTTPS y apuntar directamente a una playlist M3U compatible, no a una página HTML de GitHub ni a un archivo JSON.
+Reemplazá el nombre y la URL. La URL debe ser HTTPS y apuntar directamente a una playlist M3U compatible.
 
-```json
-{
-  "version": 1,
-  "fuentePrincipal": {
-    "habilitada": true,
-    "nombre": "Mi proveedor",
-    "url": "https://raw.githubusercontent.com/USUARIO/REPOSITORIO/RAMA/playlist.m3u"
-  }
-}
-```
-
-Reemplazá los segmentos de ejemplo por la ruta real de la lista. Las URLs oficiales de IPTV-org se reconocen y pasan por la política regional existente; las playlists personalizadas no reciben ese filtro regional.
-
-## Cuándo se aplica
-
-La app obtiene esta configuración cuando carga o vuelve a cargar el catálogo de canales. No hace falta recompilar después de cada edición de `fuentes.json`. Si GitHub no responde o el JSON nuevo es inválido, la app usa la última configuración válida guardada localmente; si no hay una caché previa, utiliza la configuración incluida al compilar.
-
-## Fuentes complementarias y de respaldo
-
-- `CUSTOM_CHANNELS_URL`: catálogo personal, normalmente `canales.json`.
-- `CHANNELS_URL`: fuente adicional de canales compatible con el lector del proyecto.
-- `EVENTS_URL`: fuente adicional de eventos/canales deportivos.
-
-La prioridad es exclusiva: fuente principal; si no produce canales válidos, catálogo personal; si tampoco está disponible, fuente heredada de canales y, por último, eventos deportivos. La app no concatena el catálogo personal a una fuente principal que ya funciona.
+La prioridad es fija y exclusiva: `canales.json`; IPTV-org; `CHANNELS_URL`; `EVENTS_URL`. Las listas no se concatenan.

@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      # Use the config from the same branch to test the new source without changing main.
+      # Personal canales.json stays primary; branch-specific fuentes.json controls only the IPTV-org fallback.
       ORG_GRADLE_PROJECT_IPTV_ORG_URL: 'https://iptv-org.github.io/iptv/index.m3u'
       ORG_GRADLE_PROJECT_REMOTE_SOURCES_CONFIG_URL: 'https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/${{ github.ref_name }}/fuentes.json'
       ORG_GRADLE_PROJECT_CHANNELS_URL: ''

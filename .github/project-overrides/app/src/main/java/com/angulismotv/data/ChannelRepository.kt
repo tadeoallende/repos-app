@@ -79,7 +79,7 @@ object ChannelRepository {
 
         logPersonalSourceFailure(personal)
 
-        val iptvOrgFallback = loadPrimarySource(context)
+        val iptvOrgFallback = loadIptvOrgFallback(context)
         if (iptvOrgFallback.channels.isNotEmpty()) {
             if (context != null) saveCache(context, iptvOrgFallback.channels)
             val personalUnavailable = personal.isUnavailable()
@@ -95,7 +95,7 @@ object ChannelRepository {
         return loadFallbackSources(iptvOrgFallback, personal, context)
     }
 
-    private suspend fun loadPrimarySource(context: Context?): SourceLoad {
+    private suspend fun loadIptvOrgFallback(context: Context?): SourceLoad {
         val remoteSource = RemoteSourceConfiguration.load(context)
         val configuredUrl = if (remoteSource.enabled) remoteSource.url else "disabled"
         val url = IptvOrgPlaylistPolicy.resolve(configuredUrl)

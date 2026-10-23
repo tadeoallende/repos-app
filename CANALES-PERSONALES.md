@@ -1,6 +1,6 @@
 # AngulismoTV — catálogo personal de canales
 
-El archivo `canales.json` es el **respaldo** de la fuente principal configurada en `fuentes.json`.
+El archivo `canales.json` es la **fuente principal** de AngulismoTV. La aplicación respeta la lista que mantenés ahí como catálogo autoritativo.
 
 ## Agregar o quitar canales
 
@@ -39,10 +39,10 @@ Para una fuente con reproductor web se puede omitir `streamUrl` y añadir `optio
 
 ## Orden de selección
 
-1. La app usa la fuente principal configurada en `fuentes.json` si descarga canales válidos.
-2. Si la principal está desactivada, falla o no produce canales válidos, usa este catálogo personal.
-3. Solo si también falta o falla `canales.json`, prueba las fuentes heredadas `CHANNELS_URL` y `EVENTS_URL`, en ese orden.
+1. **Principal:** el catálogo personal configurado en `CUSTOM_CHANNELS_URL` (normalmente este `canales.json`).
+2. **Respaldo:** IPTV-org, si la lista personal falla, está vacía o no tiene canales válidos. Su configuración está en `fuentes.json`.
+3. **Último recurso:** las fuentes heredadas `CHANNELS_URL` y `EVENTS_URL`, en ese orden.
 
-**Los catálogos no se mezclan:** una fuente de respaldo reemplaza a la anterior, no se concatena con una fuente principal que ya funciona. Así se evita duplicar canales y alterar la identidad o numeración del catálogo activo.
+**Las listas no se mezclan.** Cuando una fuente tiene datos válidos, se utiliza esa lista sola; una fuente de respaldo nunca se concatena a la principal. Esto evita introducir canales que no mantenés, duplicados y cambios inesperados en la identidad o numeración.
 
 El archivo debe ser JSON válido: sin comentarios, sin comas finales y con comillas dobles. Usá únicamente URLs que tengas autorización para distribuir. La disponibilidad y estabilidad de cada transmisión dependen de su proveedor.

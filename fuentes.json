@@ -2,7 +2,7 @@
   "version": 1,
   "fuentePrincipal": {
     "habilitada": true,
-    "nombre": "IPTV-org",
+    "nombre": "IPTV-org (respaldo)",
     "url": "https://iptv-org.github.io/iptv/index.m3u"
   }
 }
