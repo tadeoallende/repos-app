@@ -537,6 +537,74 @@ def update_kotlin():
     s=s.replace('    private fun dp(value: Int): Int = (value * resources.displayMetrics.density + 0.5f).toInt()\n\n','')
     s=s.replace('val size = (48 * resources.displayMetrics.density + 0.5f).toInt()','val size = resources.getDimensionPixelSize(R.dimen.player_control_size_tv)')
     s=s.replace('val maxNameWidthDp = if (isTV) 480 else 220\n            maxWidth = (maxNameWidthDp * resources.displayMetrics.density).toInt()','val maxNameWidthRes = if (isTV) R.dimen.zapping_label_max_width_tv else R.dimen.zapping_label_max_width_mobile\n            maxWidth = resources.getDimensionPixelSize(maxNameWidthRes)')
+
+    # El estado visual por tipo de reproducción se separa de la Activity.
+    if "import com.angulismotv.ui.PlayerControlStateController" not in s:
+        s = s.replace(
+            "import com.angulismotv.ui.PlayerControlsLayoutController\n",
+            "import com.angulismotv.ui.PlayerControlsLayoutController\nimport com.angulismotv.ui.PlayerControlStateController\n"
+        )
+    field_marker = "    private lateinit var timelineController: PlayerTimelineController\n"
+    if "private lateinit var playerControlStateController: PlayerControlStateController" not in s:
+        if field_marker not in s:
+            raise SystemExit("Missing timelineController field in UnifiedPlayerActivity")
+        s = s.replace(
+            field_marker,
+            field_marker + "    private lateinit var playerControlStateController: PlayerControlStateController\n"
+        )
+
+    setup_marker = "        playerControlsLayoutController.apply(resources.configuration.orientation)\n"
+    if "playerControlStateController = PlayerControlStateController(" not in s:
+        if setup_marker not in s:
+            raise SystemExit("Missing PlayerControlsLayoutController setup marker")
+        setup_block = """        playerControlStateController = PlayerControlStateController(
+            isTv = { isTV },
+            streamType = { currentStreamType },
+            castConfigured = { cast.isConfigured },
+            hasMultipleOptions = ::hasMultipleOptions,
+            currentIsLive = { currentIsLive },
+            streamIsLive = { streamIsLive },
+            iframeIsControllable = { webBridge.isControllable },
+            iframeIsPlaying = { webBridge.isPlaying },
+            iframeDurationMs = { webBridge.duration },
+            menuButton = btnMenu,
+            playPauseButton = btnPlayPause,
+            rewindButton = btnRewind,
+            forwardButton = btnForward,
+            optionsButton = btnOptions,
+            reloadButton = btnReloadStream,
+            closeButton = btnClose,
+            castButton = mediaRouteButton,
+            onPlayStateChanged = ::updatePlayPauseButton,
+            updateControlFocusOrder = ::updateControlFocusOrder
+        )
+"""
+        s = s.replace(setup_marker, setup_block + setup_marker)
+
+    delegated_method = "    private fun updateControlsVisibility() = playerControlStateController.updateControlsVisibility()"
+    if delegated_method not in s:
+        state_pattern = re.compile(
+            r'    private fun updateControlsVisibility\(\) \{.*?(?=    private fun updateFavoriteButton\()',
+            re.S
+        )
+        match = state_pattern.search(s)
+        if not match:
+            raise SystemExit("Missing player controls state methods for extraction")
+        replacement = """    private fun updateControlsVisibility() = playerControlStateController.updateControlsVisibility()
+
+    private fun updateCastButtonVisibility() = playerControlStateController.updateCastButtonVisibility()
+
+    private fun updateTransportControlsVisibility() = playerControlStateController.updateTransportControlsVisibility()
+
+    private fun updateIframeTransportControls() = playerControlStateController.updateIframeTransportControls()
+
+    private fun updateNativeTransportControls() = playerControlStateController.updateNativeTransportControls()
+
+    private fun configureTvControlFocusOrder() = playerControlStateController.configureTvControlFocusOrder()
+
+"""
+        s = s[:match.start()] + replacement + s[match.end():]
+
     write(p,s)
 
 
@@ -554,7 +622,7 @@ def design_doc():
 - app/src/main/res/layout/: estructura de las pantallas; mantener referencias a tokens compartidos.
 
 ## Componentes conectados
-Botones de acción y transporte del reproductor, acción primaria, carga/error, zapping, cronología, identidad del canal, controles inline, búsqueda de cabecera, chips, nombre/número de canal, conteos y reloj. Las medidas fijas se centralizan en dimens.xml; Kotlin conserva únicamente la distribución que cambia por orientación o estado.
+Botones de acción y transporte del reproductor, acción primaria, carga/error, zapping, cronología, identidad del canal, controles inline, búsqueda de cabecera, chips, nombre/número de canal, conteos y reloj. Las decisiones de visibilidad y foco por modo de reproducción están en PlayerControlStateController; las medidas fijas se centralizan en dimens.xml y Kotlin conserva la orquestación de sesión.
 
 ## Reglas
 1. Ajustar primero un token común; crear una excepción por pantalla solo cuando sea necesaria.
