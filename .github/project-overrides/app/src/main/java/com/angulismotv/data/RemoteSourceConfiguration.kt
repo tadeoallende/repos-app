@@ -15,7 +15,7 @@ internal object RemoteSourceConfiguration {
 
     private const val TAG = "RemoteSourceConfig"
     private const val PREFS_NAME = "remote_source_configuration"
-    private const val PREFS_KEY = "last_valid_json"
+    private const val PREFS_KEY_PREFIX = "last_valid_json:"
     private const val CONNECT_TIMEOUT_MS = 5_000
     private const val READ_TIMEOUT_MS = 7_000
 
@@ -23,6 +23,7 @@ internal object RemoteSourceConfiguration {
         val fallback = fromBuildConfig()
         if (context == null || BuildConfig.REMOTE_SOURCES_CONFIG_URL.isBlank()) return@withContext fallback
         val preferences = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        val preferencesKey = cacheKeyFor(BuildConfig.REMOTE_SOURCES_CONFIG_URL)
         val remoteJson = runCatching { download(BuildConfig.REMOTE_SOURCES_CONFIG_URL.trim()) }
             .onFailure { Log.w(TAG, "No se pudo actualizar la configuración remota; se usará la última válida") }
             .getOrNull()
@@ -30,13 +31,17 @@ internal object RemoteSourceConfiguration {
         if (!remoteJson.isNullOrBlank()) {
             val parsed = parse(remoteJson)
             if (parsed != null) {
-                preferences.edit().putString(PREFS_KEY, remoteJson).apply()
+                preferences.edit().putString(preferencesKey, remoteJson).apply()
                 return@withContext parsed
             }
             Log.w(TAG, "Configuración remota inválida; se usará la última válida")
         }
-        preferences.getString(PREFS_KEY, null)?.let(::parse) ?: fallback
+        preferences.getString(preferencesKey, null)?.let(::parse) ?: fallback
     }
+
+    /** Isolates the offline configuration cache for each configured endpoint. */
+    internal fun cacheKeyFor(configurationUrl: String): String =
+        PREFS_KEY_PREFIX + configurationUrl.trim()
 
     private fun fromBuildConfig(): PrimarySource {
         val configured = BuildConfig.IPTV_ORG_URL.trim()
