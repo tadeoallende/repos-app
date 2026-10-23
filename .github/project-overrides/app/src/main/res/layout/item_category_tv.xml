@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<TextView xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/Widget.AngulismoTV.CategoryChip"
+    android:id="@+id/category_chip"
+    android:layout_width="wrap_content"
+    android:layout_height="@dimen/category_chip_height_tv"
+    android:layout_marginEnd="@dimen/category_chip_margin_end_tv"
+    android:paddingStart="@dimen/category_chip_padding_horizontal_tv"
+    android:paddingEnd="@dimen/category_chip_padding_horizontal_tv" />

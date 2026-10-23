@@ -2,6 +2,7 @@
 """Apply tracked source overlays to the Android project ZIP before GitHub Actions builds it."""
 from __future__ import annotations
 import os
+import re
 from pathlib import Path
 import sys
 import tempfile
@@ -85,16 +86,23 @@ def apply_nebula_visuals(name: str, text: str) -> str:
     if not image_nodes or not text_nodes or root.tag.split("}")[-1] == "merge":
         return text
 
-    # Rows are still ordinary focusable adapter items, keeping the existing D-pad handling intact.
-    root.set(android_ns + "background", "@drawable/bg_channel_row_nebula")
-    root.set(android_ns + "focusable", "true")
-    root.set(android_ns + "clickable", "true")
-    root.set(android_ns + "paddingStart", "8dp")
-    root.set(android_ns + "paddingEnd", "8dp")
-    root.set(android_ns + "paddingTop", "4dp")
-    root.set(android_ns + "paddingBottom", "4dp")
-    root.set(android_ns + "minHeight", "52dp")
-    root.set(android_ns + "layout_marginBottom", "2dp")
+    # Keep XML as the source of truth. These defaults only fill gaps in older layouts.
+    def set_if_missing(node, attribute, value):
+        if node.get(attribute) is None:
+            node.set(attribute, value)
+
+    for attribute, value in (
+        (android_ns + "background", "@drawable/bg_channel_row_nebula"),
+        (android_ns + "focusable", "true"),
+        (android_ns + "clickable", "true"),
+        (android_ns + "paddingStart", "8dp"),
+        (android_ns + "paddingEnd", "8dp"),
+        (android_ns + "paddingTop", "4dp"),
+        (android_ns + "paddingBottom", "4dp"),
+        (android_ns + "minHeight", "52dp"),
+        (android_ns + "layout_marginBottom", "2dp"),
+    ):
+        set_if_missing(root, attribute, value)
     if root.get(android_ns + "layout_height") in (None, "match_parent"):
         root.set(android_ns + "layout_height", "wrap_content")
 
@@ -107,27 +115,27 @@ def apply_nebula_visuals(name: str, text: str) -> str:
         logo = next((node for node in image_nodes
                      if not any(token in view_id(node) for token in ("play", "arrow", "search", "favorite", "fav"))),
                     image_nodes[0])
-    logo.set(android_ns + "layout_width", "40dp")
-    logo.set(android_ns + "layout_height", "40dp")
-    logo.set(android_ns + "scaleType", "fitCenter")
-    logo.set(android_ns + "adjustViewBounds", "true")
-    logo.set(android_ns + "padding", "4dp")
-    logo.set(android_ns + "background", "@drawable/bg_channel_logo_container")
+    set_if_missing(logo, android_ns + "layout_width", "40dp")
+    set_if_missing(logo, android_ns + "layout_height", "40dp")
+    set_if_missing(logo, android_ns + "scaleType", "fitCenter")
+    set_if_missing(logo, android_ns + "adjustViewBounds", "true")
+    set_if_missing(logo, android_ns + "padding", "4dp")
+    set_if_missing(logo, android_ns + "background", "@drawable/bg_channel_logo_container")
 
     primary_text = next((node for node in text_nodes
                          if any(token in view_id(node) for token in ("name", "title", "channelname", "canal"))),
                         text_nodes[0])
     for node in text_nodes:
         if node is primary_text:
-            node.set(android_ns + "textColor", "#EDF2FA")
-            node.set(android_ns + "textSize", "15sp")
-            node.set(android_ns + "fontFamily", "sans-serif-medium")
-            node.set(android_ns + "maxLines", "1")
-            node.set(android_ns + "ellipsize", "end")
+            set_if_missing(node, android_ns + "textColor", "#EDF2FA")
+            set_if_missing(node, android_ns + "textSize", "15sp")
+            set_if_missing(node, android_ns + "fontFamily", "sans-serif-medium")
+            set_if_missing(node, android_ns + "maxLines", "1")
+            set_if_missing(node, android_ns + "ellipsize", "end")
         else:
-            node.set(android_ns + "textColor", "#AAB7CA")
-            node.set(android_ns + "maxLines", "1")
-            node.set(android_ns + "ellipsize", "end")
+            set_if_missing(node, android_ns + "textColor", "#AAB7CA")
+            set_if_missing(node, android_ns + "maxLines", "1")
+            set_if_missing(node, android_ns + "ellipsize", "end")
 
     return ET.tostring(root, encoding="unicode", xml_declaration=True)
 
@@ -499,6 +507,30 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             holder.itemView.setOnKeyListener(null)
         }""",
             "estabilizar foco con pulsación prolongada en lista TV")
+
+        text = replace_once(text,
+            """        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_channel, parent, false)""",
+            """        val layout = if (isTV) R.layout.item_channel_tv else R.layout.item_channel
+        val view = LayoutInflater.from(parent.context).inflate(layout, parent, false)""",
+            "elegir fila de canal XML")
+
+        text = replace_once(text,
+            "val logoRadius = if (isTV) 12 else (6 * itemView.resources.displayMetrics.density + 0.5f).toInt()",
+            """val logoRadiusRes = if (isTV) R.dimen.channel_logo_corner_radius_tv else R.dimen.channel_logo_corner_radius_mobile
+            val logoRadius = itemView.resources.getDimensionPixelSize(logoRadiusRes)""",
+            "radio del logo desde dimens.xml")
+
+        text = text.replace("import android.util.TypedValue\n", "")
+        text, visual_init_count = re.subn(
+            r"        init \{\n            val density = itemView.resources.displayMetrics.density\n.*?\n        \}\n\n        private var currentChannel: Channel\? = null",
+            "        private var currentChannel: Channel? = null",
+            text,
+            count=1,
+            flags=re.S,
+        )
+        if visual_init_count != 1:
+            raise RuntimeError("No se pudo retirar la configuración visual de ChannelsAdapter.kt")
 
     elif name == "app/src/main/java/com/angulismotv/ui/InlinePlayerPresentationController.kt":
         text = replace_once(text, "        inlinePlayerContainer.visibility = View.VISIBLE\n        if (!isTV()) {\n", "        inlinePlayerContainer.visibility = View.VISIBLE\n        tvPlayerEmptyState?.visibility = View.GONE\n        if (!isTV()) {\n", "ocultar placeholder al seleccionar")

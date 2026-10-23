@@ -74,6 +74,16 @@ def token_dimensions():
     <dimen name="zapping_label_max_width_mobile">220dp</dimen><dimen name="zapping_label_max_width_tv">480dp</dimen>
 """
     append_resources(V / "dimens.xml", "Shared AngulismoTV design tokens", block)
+    p = V / "dimens.xml"
+    s = read(p)
+    extra_dimensions = (
+        '<dimen name="channel_logo_corner_radius_mobile">6dp</dimen>',
+        '<dimen name="channel_logo_corner_radius_tv">12dp</dimen>',
+    )
+    missing_dimensions = [value for value in extra_dimensions if value.split('"')[1] not in s]
+    if missing_dimensions:
+        s = s.replace("</resources>", "\n    " + "\n    ".join(missing_dimensions) + "\n</resources>")
+        write(p, s)
 
 
 def component_styles():
@@ -94,6 +104,8 @@ def component_styles():
         <item name="android:fontFamily">sans-serif-medium</item><item name="android:textSize">@dimen/text_size_body</item><item name="android:textColor">@color/text_primary</item><item name="android:letterSpacing">0.005</item>
     </style>
     <style name="TextAppearance.AngulismoTV.ChannelName.TV" parent="@style/TextAppearance.AngulismoTV.ChannelName"><item name="android:textSize">@dimen/text_size_channel_name_tv</item></style>
+    <style name="TextAppearance.AngulismoTV.ChannelName.RowMobile" parent="@style/TextAppearance.AngulismoTV.ChannelName"><item name="android:textSize">@dimen/text_size_body</item><item name="android:letterSpacing">0</item></style>
+    <style name="TextAppearance.AngulismoTV.ChannelName.RowTV" parent="@style/TextAppearance.AngulismoTV.ChannelName.TV"><item name="android:letterSpacing">0</item></style>
     <style name="TextAppearance.AngulismoTV.CategoryName" parent="@style/TextAppearance.AngulismoTV.ChannelName"><item name="android:textSize">@dimen/text_size_body</item></style>
     <style name="TextAppearance.AngulismoTV.CategoryCount" parent="TextAppearance.MaterialComponents.Caption">
         <item name="android:fontFamily">sans-serif-medium</item><item name="android:textSize">@dimen/text_size_caption</item><item name="android:textColor">@color/text_secondary</item>
@@ -124,7 +136,7 @@ def component_styles():
     <style name="Widget.AngulismoTV.CategoryChip" parent="Widget.AppCompat.TextView">
         <item name="android:paddingHorizontal">@dimen/category_chip_padding_horizontal_mobile</item><item name="android:gravity">center</item><item name="android:textSize">@dimen/category_chip_text_size</item>
         <item name="android:fontFamily">sans-serif-medium</item><item name="android:letterSpacing">0.005</item><item name="android:singleLine">true</item><item name="android:ellipsize">end</item>
-        <item name="android:textColor">@color/text_secondary</item><item name="android:background">@drawable/bg_category_default</item>
+        <item name="android:textColor">@color/category_chip_text_selector</item><item name="android:background">@drawable/bg_category_chip_selector</item>
     </style>
 </resources>
 """
@@ -146,6 +158,32 @@ def component_styles():
             s = s[:m.start(1)] + block + s[m.end(1):]
     write(p, s)
 
+
+
+    # Ensure these component tokens exist even when styles.xml predates the current generator.
+    p = V / "styles.xml"
+    s = read(p)
+    row_styles = """    <style name="TextAppearance.AngulismoTV.ChannelName.RowMobile" parent="@style/TextAppearance.AngulismoTV.ChannelName"><item name="android:textSize">@dimen/text_size_body</item><item name="android:letterSpacing">0</item></style>
+    <style name="TextAppearance.AngulismoTV.ChannelName.RowTV" parent="@style/TextAppearance.AngulismoTV.ChannelName.TV"><item name="android:letterSpacing">0</item></style>"""
+    if "TextAppearance.AngulismoTV.ChannelName.RowMobile" not in s:
+        s = s.replace("</resources>", row_styles + "\n</resources>")
+    category_pattern = re.compile(r'(<style name="Widget\.AngulismoTV\.CategoryChip"[^>]*>)(.*?)(</style>)', re.S)
+    match = category_pattern.search(s)
+    if not match:
+        raise SystemExit("Missing Widget.AngulismoTV.CategoryChip style")
+    category_body = match.group(2)
+    category_body = re.sub(
+        r'<item name="android:textColor">.*?</item>',
+        '<item name="android:textColor">@color/category_chip_text_selector</item>',
+        category_body, count=1
+    )
+    category_body = re.sub(
+        r'<item name="android:background">.*?</item>',
+        '<item name="android:background">@drawable/bg_category_chip_selector</item>',
+        category_body, count=1
+    )
+    s = s[:match.start()] + match.group(1) + category_body + match.group(3) + s[match.end():]
+    write(p, s)
 
 def style_view(path, view_id, attr, style, remove=()):
     s = read(path)
@@ -173,7 +211,9 @@ def update_xml():
 
     for file, view, style in [
         ("item_channel.xml", "channel_number", "TextAppearance.AngulismoTV.ChannelNumber"),
-        ("item_channel.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName"),
+        ("item_channel.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName.RowMobile"),
+        ("item_channel_tv.xml", "channel_number", "TextAppearance.AngulismoTV.ChannelNumber"),
+        ("item_channel_tv.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName.RowTV"),
         ("item_channel_side.xml", "channel_number", "TextAppearance.AngulismoTV.ChannelNumber"),
         ("item_channel_side.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName.TV"),
         ("item_category_side.xml", "category_name", "TextAppearance.AngulismoTV.CategoryName"),
@@ -255,6 +295,39 @@ def update_kotlin():
         "        const val TV_CHIP_HEIGHT_DP = 38\n        const val TV_CHIP_TEXT_SIZE_SP = 13f\n        const val TV_CHIP_MARGIN_END_DP = 8\n": "",
     }.items():
         s = s.replace(a, b)
+
+    # Inflate responsive chip layouts from XML; Kotlin owns dynamic state and focus only.
+    s = s.replace(
+        ".inflate(R.layout.item_category, container, false)",
+        ".inflate(if (isTV) R.layout.item_category_tv else R.layout.item_category, container, false)"
+    )
+    for visual_line in (
+        "            chip.layoutParams = chip.layoutParams.apply { height = dimen(R.dimen.category_chip_height_tv) }\n",
+        "            chip.setPadding(dimen(R.dimen.category_country_chip_padding_horizontal_tv), 0, dimen(R.dimen.category_country_chip_padding_horizontal_tv), 0)\n",
+        "        chip.layoutParams = chip.layoutParams.apply { height = dimen(R.dimen.category_chip_height_tv) }\n",
+        "        chip.setPadding(dimen(R.dimen.category_chip_padding_horizontal_tv), 0, dimen(R.dimen.category_chip_padding_horizontal_tv), 0)\n",
+        "        chip.setTextSize(TypedValue.COMPLEX_UNIT_PX, context.resources.getDimension(R.dimen.category_chip_text_size))\n",
+        "        updateChipStyle(chip, chip.isSelected)\n",
+        "            updateChipStyle(chip, selected)\n",
+        "            updateChipStyle(this, isFiltered)\n",
+    ):
+        s = s.replace(visual_line, "")
+    s = s.replace("""        (chip.layoutParams as? ViewGroup.MarginLayoutParams)?.let { params ->
+            params.marginEnd = dimen(R.dimen.category_chip_margin_end_tv)
+            chip.layoutParams = params
+        }
+""", "")
+    s = re.sub(
+        r"    private fun updateChipStyle\(chip: TextView, isSelected: Boolean\) \{\n.*?\n    \}\n\n    private fun setupTVFocusEffect",
+        "    private fun setupTVFocusEffect",
+        s,
+        count=1,
+        flags=re.S
+    )
+    for unused_import in ("import android.view.ViewGroup\n", "import android.util.TypedValue\n", "import androidx.core.content.ContextCompat\n"):
+        s = s.replace(unused_import, "")
+    s = s.replace("    private fun dimen(resourceId: Int): Int = context.resources.getDimensionPixelSize(resourceId)\n\n", "")
+
     write(p, s)
 
     p = U / "ChannelScreenLayoutController.kt"
@@ -322,6 +395,9 @@ def design_doc():
 - app/src/main/res/values/colors.xml: paleta Aqua espacial, superficies, contraste y estados.
 - app/src/main/res/values/dimens.xml: escalas de espaciado/tipografía y tamaños adaptados a móvil y Android TV.
 - app/src/main/res/values/styles.xml: estilos comunes de textos, chips y controles del reproductor.
+- app/src/main/res/layout/item_channel.xml e item_channel_tv.xml: filas de canales en XML para móvil y TV.
+- app/src/main/res/layout/item_category.xml e item_category_tv.xml: medidas de chips en XML.
+- Selectores de estado en res/drawable y res/color: colores de selección de categorías definidos en XML.
 - app/src/main/res/drawable/: fondos, bordes, selectores de foco y estados de interacción.
 - app/src/main/res/layout/: estructura de las pantallas; mantener referencias a tokens compartidos.
 
