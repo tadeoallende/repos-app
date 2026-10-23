@@ -79,6 +79,21 @@ def token_dimensions():
     extra_dimensions = (
         '<dimen name="channel_logo_corner_radius_mobile">6dp</dimen>',
         '<dimen name="channel_logo_corner_radius_tv">12dp</dimen>',
+        '<dimen name="player_loading_indicator_size">48dp</dimen>',
+        '<dimen name="player_error_padding">18dp</dimen>',
+        '<dimen name="player_error_max_width">420dp</dimen>',
+        '<dimen name="text_size_channel_number_overlay">32sp</dimen>',
+        '<dimen name="zapping_overlay_margin">24dp</dimen>',
+        '<dimen name="zapping_logo_size">52dp</dimen>',
+        '<dimen name="zapping_label_margin_start">12dp</dimen>',
+        '<dimen name="text_size_zapping_channel_name">22sp</dimen>',
+        '<dimen name="player_timeline_height">30dp</dimen>',
+        '<dimen name="player_timeline_time_width">48dp</dimen>',
+        '<dimen name="player_timeline_seekbar_height">24dp</dimen>',
+        '<dimen name="player_timeline_text_size">11sp</dimen>',
+        '<dimen name="player_channel_logo_size">46dp</dimen>',
+        '<dimen name="player_transport_button_gap">8dp</dimen>',
+        '<dimen name="player_utility_button_gap">4dp</dimen>',
     )
     missing_dimensions = [value for value in extra_dimensions if value.split('"')[1] not in s]
     if missing_dimensions:
@@ -201,6 +216,27 @@ def style_view(path, view_id, attr, style, remove=()):
     write(path, s[:m.start()] + tag + s[m.end():])
 
 
+def set_view_attributes(path, updates):
+    """Move fixed visual dimensions for selected views into shared dimen resources."""
+    s = read(path)
+    for view_id, attributes in updates.items():
+        pat = re.compile(
+            r'<(?P<tag>[\w.:]+\b[^>]*\bandroid:id="@\+id/' + re.escape(view_id) + r'"[^>]*)>',
+            re.S
+        )
+        match = pat.search(s)
+        if not match:
+            raise SystemExit(f"Missing view {view_id} in {path}")
+        tag = match.group(0)
+        for attr, value in attributes.items():
+            attr_pat = re.compile(r'(?<![\w:])' + re.escape(attr) + r'="[^"]*"')
+            tag, count = attr_pat.subn(lambda _: f'{attr}="{value}"', tag, count=1)
+            if count != 1:
+                raise SystemExit(f"Missing attribute {attr} on {view_id} in {path}")
+        s = s[:match.start()] + tag + s[match.end():]
+    write(path, s)
+
+
 def update_xml():
     style_view(L / "item_category.xml", "category_chip", "style", "Widget.AngulismoTV.CategoryChip", (
         "android:paddingHorizontal", "android:gravity", "android:textSize", "android:fontFamily", "android:letterSpacing", "android:singleLine", "android:ellipsize", "android:textColor", "android:background"))
@@ -223,13 +259,103 @@ def update_xml():
                    ("android:textColor", "android:textSize", "android:fontFamily", "android:letterSpacing", "android:includeFontPadding"))
 
     p = L / "activity_unified_player.xml"
-    for view in ("btn_menu", "btn_options", "btn_favorite_channel", "btn_reload_stream", "btn_close_player"):
+    for view in ("btn_menu", "media_route_button", "btn_options", "btn_favorite_channel", "btn_reload_stream", "btn_close_player"):
         style_view(p, view, "style", "Widget.AngulismoTV.PlayerActionButton", ("android:background", "android:padding"))
     for view in ("btn_rewind", "btn_forward"):
         style_view(p, view, "style", "Widget.AngulismoTV.PlayerTransportButton", ("android:background", "android:padding"))
     style_view(p, "btn_play_pause", "style", "Widget.AngulismoTV.PlayerPrimaryButton", ("android:background", "android:padding"))
-    s = read(p).replace('android:layout_width="48dp" android:layout_height="48dp"', 'android:layout_width="@dimen/player_primary_action_size" android:layout_height="@dimen/player_primary_action_size"')
-    write(p, s)
+    set_view_attributes(p, {
+        "progress_bar": {
+            "android:layout_width": "@dimen/player_loading_indicator_size",
+            "android:layout_height": "@dimen/player_loading_indicator_size",
+        },
+        "error_text": {
+            "android:padding": "@dimen/player_error_padding",
+            "android:maxWidth": "@dimen/player_error_max_width",
+            "android:textSize": "@dimen/text_size_section",
+        },
+        "channel_number_overlay": {
+            "android:textSize": "@dimen/text_size_channel_number_overlay",
+        },
+        "zapping_overlay": {
+            "android:layout_marginStart": "@dimen/zapping_overlay_margin",
+            "android:layout_marginTop": "@dimen/zapping_overlay_margin",
+        },
+        "zapping_logo": {
+            "android:layout_width": "@dimen/zapping_logo_size",
+            "android:layout_height": "@dimen/zapping_logo_size",
+        },
+        "zapping_channel_name": {
+            "android:layout_marginStart": "@dimen/zapping_label_margin_start",
+            "android:maxWidth": "@dimen/zapping_label_max_width_tv",
+            "android:textSize": "@dimen/text_size_zapping_channel_name",
+        },
+        "bottom_controls": {
+            "android:paddingStart": "@dimen/player_controls_horizontal_padding_wide",
+            "android:paddingEnd": "@dimen/player_controls_horizontal_padding_wide",
+            "android:paddingTop": "@dimen/player_controls_padding_top",
+            "android:paddingBottom": "@dimen/player_controls_padding_bottom",
+        },
+        "player_remote_help": {
+            "android:layout_marginBottom": "@dimen/spacing_sm",
+            "android:textSize": "@dimen/text_size_caption",
+        },
+        "player_timeline_container": {
+            "android:layout_height": "@dimen/player_timeline_height",
+            "android:layout_marginBottom": "@dimen/player_control_spacing_compact",
+        },
+        "player_time_current": {
+            "android:layout_width": "@dimen/player_timeline_time_width",
+            "android:textSize": "@dimen/player_timeline_text_size",
+        },
+        "player_seek_bar": {
+            "android:layout_height": "@dimen/player_timeline_seekbar_height",
+        },
+        "player_time_duration": {
+            "android:layout_width": "@dimen/player_timeline_time_width",
+            "android:textSize": "@dimen/player_timeline_text_size",
+        },
+        "channel_logo": {
+            "android:layout_width": "@dimen/player_channel_logo_size",
+            "android:layout_height": "@dimen/player_channel_logo_size",
+        },
+        "channel_name": {
+            "android:textSize": "@dimen/text_size_section",
+        },
+        "channel_category": {
+            "android:layout_marginTop": "@dimen/spacing_xs",
+            "android:textSize": "@dimen/text_size_caption",
+        },
+        "player_transport_controls": {
+            "android:layout_marginStart": "@dimen/player_control_spacing_regular",
+        },
+        "btn_rewind": {
+            "android:layout_marginEnd": "@dimen/player_transport_button_gap",
+        },
+        "btn_play_pause": {
+            "android:layout_width": "@dimen/player_primary_action_size",
+            "android:layout_height": "@dimen/player_primary_action_size",
+            "android:layout_marginEnd": "@dimen/player_transport_button_gap",
+        },
+        "player_utility_controls": {
+            "android:layout_marginStart": "@dimen/player_control_spacing_regular",
+        },
+        "btn_menu": {
+            "android:layout_marginEnd": "@dimen/player_utility_button_gap",
+        },
+        "media_route_button": {
+            "android:layout_marginEnd": "@dimen/player_utility_button_gap",
+        },
+        "btn_options": {
+            "android:layout_marginEnd": "@dimen/player_utility_button_gap",
+        },
+        "btn_favorite_channel": {
+            "android:layout_marginEnd": "@dimen/player_utility_button_gap",
+        },
+        "btn_reload_stream": {
+            "android:layout_marginEnd": "@dimen/player_utility_button_gap",
+        },
+    })
 
     mobile = L / "fragment_channels.xml"
     style_view(mobile, "inline_btn_play_pause", "style", "Widget.AngulismoTV.InlinePlayerPrimaryButton", ("android:background", "android:padding"))
@@ -402,7 +528,7 @@ def design_doc():
 - app/src/main/res/layout/: estructura de las pantallas; mantener referencias a tokens compartidos.
 
 ## Componentes conectados
-Botones de acción y transporte del reproductor, acción primaria, controles inline, búsqueda de cabecera, chips, nombre/número de canal, conteos y reloj. Los controladores de cabecera, categorías, reproductor integrado y fila de controles fullscreen leen los valores de dimens.xml.
+Botones de acción y transporte del reproductor, acción primaria, carga/error, zapping, cronología, identidad del canal, controles inline, búsqueda de cabecera, chips, nombre/número de canal, conteos y reloj. Las medidas fijas se centralizan en dimens.xml; Kotlin conserva únicamente la distribución que cambia por orientación o estado.
 
 ## Reglas
 1. Ajustar primero un token común; crear una excepción por pantalla solo cuando sea necesaria.
