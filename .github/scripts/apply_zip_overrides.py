@@ -158,6 +158,33 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         ]:
             text = replace_once(text, old, new, label)
 
+        text = replace_once(
+            text,
+            "import com.angulismotv.player.StreamUtils\n",
+            "import com.angulismotv.player.StreamUtils\nimport com.angulismotv.player.InlinePlaybackSourceResolver\n",
+            "importar resolvedor de fuentes inline"
+        )
+        text = replace_once(
+            text,
+            "        val selection = resolveInlinePlaybackSource(channel, sourceIndex) ?: return\n        val (url, type) = selection\n",
+            "        val selection = InlinePlaybackSourceResolver.resolve(channel, sourceIndex)\n"
+            "        if (selection == null) {\n"
+            "            showInlineError(\"No se pudo reproducir ninguna fuente de este canal.\")\n"
+            "            return\n"
+            "        }\n"
+            "        val url = selection.url\n"
+            "        val type = selection.type\n",
+            "delegar resolución de fuente inline"
+        )
+        inline_source_method_pattern = re.compile(
+            r"    private fun resolveInlinePlaybackSource\(channel: Channel, sourceIndex: Int\): Pair<String, String>\? \{\n.*?\n    \}\n\n",
+            re.S
+        )
+        text, inline_source_method_count = inline_source_method_pattern.subn("", text, count=1)
+        if inline_source_method_count != 1:
+            raise RuntimeError("No se pudo extraer resolveInlinePlaybackSource de ChannelsFragment")
+        text = text.replace("import com.angulismotv.player.StreamUtils\n", "")
+
         old_filter = '''    private fun applyFiltersAndUpdate(onListCommitted: (() -> Unit)? = null) {
         if (originalChannels.isEmpty()) {
             onListCommitted?.invoke()

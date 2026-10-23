@@ -27,7 +27,7 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         buildConfigField("String", "IPTV_ORG_URL", "\"${prop("IPTV_ORG_URL", "https://iptv-org.github.io/iptv/index.m3u")}\"")
-        buildConfigField("String", "REMOTE_SOURCES_CONFIG_URL", "\"${prop("REMOTE_SOURCES_CONFIG_URL")}\"")
+        buildConfigField("String", "REMOTE_SOURCES_CONFIG_URL", "\"${prop("REMOTE_SOURCES_CONFIG_URL", "https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/fuentes.json")}\"")
         buildConfigField("String", "CHANNELS_URL", "\"${prop("CHANNELS_URL")}\"")
         buildConfigField("String", "EVENTS_URL", "\"${prop("EVENTS_URL")}\"")
         buildConfigField("String", "CUSTOM_CHANNELS_URL", "\"${prop("CUSTOM_CHANNELS_URL", "https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json")}\"")
