@@ -22,7 +22,8 @@ jobs:
           set -euo pipefail
           mkdir -p proyecto
           unzip -q -o "AngulismoTV-limpio (1).zip" -d proyecto
-          find proyecto -type f | sort | head -200
+          find proyecto -type f | sort -o /tmp/project-files.txt
+          head -200 /tmp/project-files.txt
 
       - name: Empaquetar fuentes para inspección
         uses: actions/upload-artifact@v4
