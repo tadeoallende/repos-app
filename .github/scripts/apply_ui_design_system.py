@@ -210,6 +210,13 @@ def update_xml():
     p = L / "fragment_channels_tv.xml"
     write(p, read(p).replace("\n    </document_content>", ""))
 
+    # Empty Android backgrounds are invalid resource values. They were intended
+    # to mean "no explicit background", so remove the attribute instead.
+    for layout in L.glob("*.xml"):
+        s = read(layout)
+        s = re.sub(r'\\s+android:background=""', "", s)
+        write(layout, s)
+
 
 def update_kotlin():
     p = J / "MainActivity.kt"
