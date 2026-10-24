@@ -58,13 +58,28 @@ class PlaybackLifecycleControllerTest {
     }
 
     @Test
-    fun stoppingActivityStopsWatchdogBeforePausingPlayer() {
+    fun stoppingActivityPausesPlayerWhenNoPauseCallbackWasHandled() {
         val harness = Harness(initiallyPlaying = true)
 
         harness.controller.onStopBeforeSuper()
         harness.controller.onStopAfterSuper()
 
         assertEquals(listOf("watchdog-stop", "pause"), harness.calls)
+    }
+
+    @Test
+    fun pauseAndStopDoNotPauseNativePlayerTwice() {
+        val harness = Harness(initiallyPlaying = true)
+
+        harness.controller.onPauseBeforeSuper()
+        harness.controller.onPauseAfterSuper()
+        harness.controller.onStopBeforeSuper()
+        harness.controller.onStopAfterSuper()
+
+        assertEquals(
+            listOf("orientation-pause", "pause", "cast-stop", "web-pause", "watchdog-stop"),
+            harness.calls
+        )
     }
 
     @Test
