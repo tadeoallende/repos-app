@@ -51,24 +51,27 @@ def main() -> int:
     if not path.is_file():
         raise SystemExit(f"No se encontró {TARGET} en {root}")
     source = path.read_text(encoding="utf-8")
+    is_tv_mentions = len(re.findall(r"\\bisTV\\b", source))
+    dp_declaration = len(re.findall(r"(?m)^\\s*(?:(?:private|protected|internal|public)\\s+)?fun\\s+dp\\s*\\(", source))
+    dp_calls = len(re.findall(r"(?<![\\w.])dp\\s*\\(", source))
     print("PLAYER_AUDIT_METRICS")
     print(f"non_null_assertions={source.count('!!')}")
-    print(f"isTV_mentions={len(re.findall(r'\\bisTV\\b', source))}")
-    print(f"dp_declaration={len(re.findall(r'(?m)^\\s*(?:(?:private|protected|internal|public)\\s+)?fun\\s+dp\\s*\\(', source))}")
-    print(f"dp_call_like={len(re.findall(r'(?<![\\w.])dp\\s*\\(', source))}")
+    print(f"isTV_mentions={is_tv_mentions}")
+    print(f"dp_declaration={dp_declaration}")
+    print(f"dp_call_like={dp_calls}")
     print(f"getParcelableExtra_mentions={source.count('getParcelableExtra')}")
     print(f"self_assignment_currentStreamUrl={source.count('currentStreamUrl = url')}")
     print(f"self_assignment_currentStreamType={source.count('currentStreamType = type')}")
     print(f"source_lines={len(source.splitlines())}")
     for name in METHODS:
         blocks = method_blocks(source, name)
-        print(f"\\n===== METHOD {name}: {len(blocks)} match(es) =====")
+        print(f"\n===== METHOD {name}: {len(blocks)} match(es) =====")
         for index, (line, block) in enumerate(blocks, 1):
             lines = block.splitlines()
             if len(lines) > 45:
                 lines = lines[:45] + [f"... [{len(block.splitlines()) - 45} lines omitted] ..."]
             print(f"--- occurrence {index}; line {line} ---")
-            print("\\n".join(lines))
+            print("\n".join(lines))
     return 0
 
 
