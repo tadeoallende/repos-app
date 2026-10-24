@@ -42,6 +42,11 @@ jobs:
       ORG_GRADLE_PROJECT_CUSTOM_CHANNELS_URL: 'https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json'
       ORG_GRADLE_PROJECT_UPDATE_URL: ${{ secrets.UPDATE_URL }}
       ORG_GRADLE_PROJECT_WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
+      # Android APK signing is separate from UPDATE_PRIVATE_KEY_PEM (manifest signing).
+      ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -115,6 +120,31 @@ jobs:
         with:
           build-root-directory: ${{ env.PROJECT_DIR }}
 
+      - name: Preparar firma Android release
+        id: release_signing
+        if: ${{ env.ANDROID_RELEASE_KEYSTORE_BASE64 != '' || env.ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD != '' || env.ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS != '' || env.ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD != '' }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_RELEASE_KEYSTORE_BASE64" ] ||
+             [ -z "$ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD" ] ||
+             [ -z "$ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS" ] ||
+             [ -z "$ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD" ]; then
+            echo "::error::La firma Android está configurada de forma incompleta. Definí los cuatro secrets ANDROID_RELEASE_*."
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/angulismotv-release.jks"
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" \
+            -storepass "$ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD" \
+            -alias "$ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS" >/dev/null
+
+          echo "ORG_GRADLE_PROJECT_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "RELEASE_SIGNING_ENABLED=true" >> "$GITHUB_ENV"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "Keystore y alias válidos. No se imprimen credenciales."
+
       - name: Pruebas unitarias
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -132,6 +162,35 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+
+      - name: Verificar APK release firmado
+        if: ${{ steps.release_signing.outputs.enabled == 'true' }}
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -s "$APK" ]; then
+            echo "::error::Se configuró la firma, pero no se generó app-release.apk."
+            find app/build/outputs/apk/release -maxdepth 1 -type f -print 2>/dev/null || true
+            exit 1
+          fi
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::No se encontró apksigner en Android Build Tools."
+            exit 1
+          fi
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          echo "APK release firmado y verificado con apksigner."
+
+      - name: Aviso si no hay firma Android configurada
+        if: ${{ steps.release_signing.outputs.enabled != 'true' }}
+        run: |
+          {
+            echo "## APK release firmado"
+            echo "No se generó un APK release firmado: faltan los secrets Android de firma."
+            echo "Configurar ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_STORE_PASSWORD, ANDROID_RELEASE_KEY_ALIAS y ANDROID_RELEASE_KEY_PASSWORD."
+            echo "UPDATE_PRIVATE_KEY_PEM firma el manifiesto de actualización; no sustituye el keystore Android."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # El ZIP base se mantiene inmutable en Git. Los overlays se aplican solo
       # dentro del runner para que builds simultáneos no compitan al hacer push
@@ -151,6 +210,15 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
+      - name: Guardar APK release firmado
+        if: ${{ steps.release_signing.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release-signed
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Guardar fuentes estandarizadas
         uses: actions/upload-artifact@v4
         with:
@@ -168,10 +236,18 @@ jobs:
           APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           test -s "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip"
-          gh release create "build-${{ github.run_number }}" "$APK" "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip" \
+          ASSETS=("$APK" "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip")
+          NOTES="APK debug para pruebas y fuentes con sistema de diseño visual compartido. Compilado desde el commit $GITHUB_SHA."
+          if [ "${RELEASE_SIGNING_ENABLED:-false}" = "true" ]; then
+            RELEASE_APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+            test -s "$RELEASE_APK"
+            ASSETS+=("$RELEASE_APK")
+            NOTES="$NOTES También se incluye app-release.apk firmado para instalación/actualización."
+          fi
+          gh release create "build-${{ github.run_number }}" "${ASSETS[@]}" \
             --target "$GITHUB_SHA" \
             --title "AngulismoTV build ${{ github.run_number }} (UI estandarizada)" \
-            --notes "APK debug y fuentes con sistema de diseño visual compartido. Compilado desde el commit $GITHUB_SHA." \
+            --notes "$NOTES" \
             --prerelease
 
       - name: Resumen de errores
