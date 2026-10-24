@@ -42,7 +42,7 @@ def patch_activity(source: str) -> str:
         "            currentUrl = { currentStreamUrl },\n"
         "            currentType = { currentStreamType },\n"
         "            isHttpUrl = { url -> StreamUrlPolicy.isHttpUrl(url) },\n"
-        "            isIframeType = { type -> type == StreamType.IFRAME },\n"
+        "            isIframeType = { type -> type.equals(StreamType.IFRAME, ignoreCase = true) },\n"
         "            prepareForReload = {\n"
         "                playerGeneration++\n"
         "                isZapping = false\n"
