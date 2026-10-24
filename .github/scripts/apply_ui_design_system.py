@@ -190,7 +190,7 @@ def token_dimensions():
         '<dimen name="agenda_error_max_width">420dp</dimen>',
         '<dimen name="agenda_error_text_size">15sp</dimen>',
     )
-    missing_dimensions = [value for value in extra_dimensions if value.split('"')[1] not in s]
+    missing_dimensions = [value for value in extra_dimensions if not re.search(r'<dimen\\s+name="' + re.escape(value.split('"')[1]) + r'">', s)]
     if missing_dimensions:
         s = s.replace("</resources>", "\n    " + "\n    ".join(missing_dimensions) + "\n</resources>")
         write(p, s)
