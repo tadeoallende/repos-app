@@ -664,6 +664,40 @@ Esta es una primera etapa incremental: prioriza los componentes repetidos y los 
 """)
 
 
+
+def fix_tv_channel_number_initialization():
+    """Prepare TV channel numbers before the first list render."""
+    p = J / "fragments" / "ChannelsFragment.kt"
+    s = read(p)
+    old = """        if (isTV) {
+            applyFiltersAndUpdate { restoreLastActiveChannel(channels) }
+            return
+        }
+"""
+    new = """        if (isTV) {
+            categoryMetadataJob?.cancel()
+            val expectedViewGeneration = viewGeneration
+            categoryMetadataJob = viewLifecycleOwner.lifecycleScope.launch {
+                val channelNumbers = withContext(Dispatchers.Default) {
+                    ChannelCatalog.channelNumbersByIdentity(channels)
+                }
+                if (expectedViewGeneration != viewGeneration || view == null || !isAdded ||
+                    originalChannels !== channels) return@launch
+
+                // Los números deben estar disponibles antes del primer render en TV.
+                // De lo contrario, el adaptador muestra "—" para todos los canales.
+                channelNumbersByIdentity = channelNumbers
+                applyFiltersAndUpdate { restoreLastActiveChannel(channels) }
+            }
+            return
+        }
+"""
+    if old not in s:
+        if new in s:
+            return
+        raise SystemExit("No se encontró la rama TV esperada en generateCategoriesFromChannels")
+    write(p, s.replace(old, new, 1))
+
 def main():
     if not (ROOT / "settings.gradle.kts").exists():
         raise SystemExit(f"Not a Gradle Android root: {ROOT}")
@@ -671,6 +705,7 @@ def main():
     component_styles()
     update_xml()
     update_kotlin()
+    fix_tv_channel_number_initialization()
     design_doc()
     print("UI design system applied")
 

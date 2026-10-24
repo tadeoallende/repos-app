@@ -12,6 +12,7 @@ on:
       - '.github/scripts/apply_playback_reload_modularization.py'
       - '.github/scripts/apply_playback_lifecycle_modularization.py'
       - '.github/scripts/apply_ui_design_system.py'
+      - '.github/scripts/test_tv_channel_number_initialization.py'
   workflow_dispatch:
 
 permissions:
@@ -82,6 +83,7 @@ jobs:
           unzip -q -o "$GITHUB_WORKSPACE/project-base.zip" -d proyecto/compilacion
           PROJECT_DIR="$GITHUB_WORKSPACE/proyecto/compilacion"
           python3 .github/scripts/apply_ui_design_system.py "$PROJECT_DIR"
+          python3 .github/scripts/test_tv_channel_number_initialization.py "$PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
