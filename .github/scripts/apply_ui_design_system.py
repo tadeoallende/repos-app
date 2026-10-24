@@ -826,6 +826,26 @@ def update_xml():
             content = content.replace(old, new)
         write(path, content)
 
+    # Attribute-level setters also handle multiline XML formatting.
+    set_view_attributes(L / "item_category_side.xml", {
+        "category_selected_marker": {
+            "android:layout_width": "@dimen/side_category_marker_width",
+            "android:layout_height": "@dimen/side_category_marker_height",
+            "android:layout_marginEnd": "@dimen/side_category_marker_margin_end",
+        },
+        "category_icon": {
+            "android:layout_width": "@dimen/side_category_icon_size",
+            "android:layout_height": "@dimen/side_category_icon_size",
+            "android:layout_marginEnd": "@dimen/side_category_icon_margin_end",
+        },
+        "category_count": {
+            "android:layout_marginStart": "@dimen/side_category_count_margin_start",
+            "android:minWidth": "@dimen/side_category_count_min_width",
+            "android:paddingStart": "@dimen/side_category_count_padding_horizontal",
+            "android:paddingEnd": "@dimen/side_category_count_padding_horizontal",
+        },
+    })
+
     agenda = L / "fragment_agenda.xml"
     set_view_attributes(agenda, {
         "progress_bar": {
