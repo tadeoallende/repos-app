@@ -36,6 +36,21 @@ class InlinePlayerTransferPolicyTest {
     }
 
     @Test
+    fun iframeTypeMatchIsCaseInsensitive() {
+        val plan = resolve(
+            fromInline = true,
+            nativePlayerAvailable = false,
+            streamUrl = "https://example.test/embed",
+            streamType = "IFrame",
+            webViewVisible = true,
+            webViewHasUrl = true
+        )
+
+        assertEquals(InlinePlayerTransferMode.WEB_VIEW, plan.mode)
+        assertTrue(plan.transferWebView)
+    }
+
+    @Test
     fun doesNotTransferIframeWhenWebViewIsHiddenOrHasNoUrl() {
         val hidden = resolve(
             fromInline = true,
