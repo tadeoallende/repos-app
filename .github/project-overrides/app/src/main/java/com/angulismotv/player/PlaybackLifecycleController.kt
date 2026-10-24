@@ -56,8 +56,12 @@ internal class PlaybackLifecycleController(
         stopRecoveryWatchdog()
     }
 
-    /** Called after super.onStop(), matching the existing behavior of pausing the engine. */
+    /**
+     * Do not pause the engine after a finishing fullscreen Activity has handed it back
+     * to the inline player: both screens reference the same ExoPlayer instance.
+     */
     fun onStopAfterSuper() {
+        if (isFinishing() && isFromInlinePlayer()) return
         pauseNativePlayer()
     }
 }
