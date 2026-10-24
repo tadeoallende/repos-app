@@ -2,6 +2,7 @@ package com.angulismotv.player
 
 import android.content.Context
 import com.angulismotv.models.StreamType
+import com.google.android.exoplayer2.DefaultRenderersFactory
 import com.google.android.exoplayer2.ExoPlayer
 import com.google.android.exoplayer2.ui.PlayerView
 
@@ -51,7 +52,12 @@ internal class FullscreenNativePlaybackController(
         playWhenReady: Boolean
     ) {
         val mediaSource = StreamMediaSourceFactory.create(url, type)
-        val player = ExoPlayer.Builder(context)
+
+        // Some Android TV devices expose multiple decoders for the same audio format.
+        // Allow ExoPlayer to fall back if its preferred decoder fails to initialize.
+        val renderersFactory = DefaultRenderersFactory(context)
+            .setEnableDecoderFallback(true)
+        val player = ExoPlayer.Builder(context, renderersFactory)
             .setLoadControl(
                 StreamMediaSourceFactory.createLoadControl(
                     StreamMediaSourceFactory.BufferProfile.FULLSCREEN
