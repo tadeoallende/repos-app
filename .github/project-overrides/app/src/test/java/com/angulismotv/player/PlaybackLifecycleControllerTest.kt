@@ -67,6 +67,21 @@ class PlaybackLifecycleControllerTest {
         assertEquals(listOf("watchdog-stop", "pause"), harness.calls)
     }
 
+    @Test
+    fun stoppingFinishingFullscreenActivityDoesNotPauseReturnedInlineSession() {
+        val harness = Harness(
+            initiallyPlaying = true,
+            finishing = true,
+            fromInline = true
+        )
+
+        harness.controller.onStopBeforeSuper()
+        harness.controller.onStopAfterSuper()
+
+        assertEquals(listOf("watchdog-stop"), harness.calls)
+        assertTrue(harness.playerWantsPlay)
+    }
+
     private class Harness(
         initiallyPlaying: Boolean,
         private val finishing: Boolean = false,
