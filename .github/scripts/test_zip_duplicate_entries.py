@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 from pathlib import Path
+import sys
 import tempfile
 import zipfile
 
@@ -36,6 +37,15 @@ def main() -> None:
             assert source.read(selected_layout).decode("utf-8") == "new-layout"
 
     print("ZIP duplicate-entry regression: OK (keeps the last entry for each path).")
+
+    if len(sys.argv) > 1:
+        actual_archive = Path(sys.argv[1])
+        with zipfile.ZipFile(actual_archive, "r") as source:
+            names = [info.filename for info in source.infolist()]
+        duplicates = sorted({name for name in names if names.count(name) > 1})
+        if duplicates:
+            raise SystemExit("El ZIP de compilación todavía tiene rutas duplicadas: " + ", ".join(duplicates[:20]))
+        print(f"ZIP de compilación sin rutas duplicadas: {len(names)} entradas.")
 
 
 if __name__ == "__main__":
