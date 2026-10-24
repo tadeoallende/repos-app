@@ -24,8 +24,16 @@ internal class PlaybackLifecycleController(
     private val pauseWebView: () -> Unit,
     private val stopRecoveryWatchdog: () -> Unit
 ) {
+    /**
+     * onStop normally follows onPause. Remember whether onPause already paused the native player
+     * so onStop only performs the fallback pause if onPause intentionally skipped it (for example,
+     * while zapping) or was not routed through this controller.
+     */
+    private var nativePauseHandledSinceResume = false
+
     /** Called by Activity.onResume() immediately after super.onResume(). */
     fun onResume() {
+        nativePauseHandledSinceResume = false
         orientationOnResume()
         if (!isTV()) enableImmersiveFullscreen()
         startCastDiscovery()
@@ -44,8 +52,14 @@ internal class PlaybackLifecycleController(
     fun onPauseAfterSuper() {
         if (isFinishing() && isFromInlinePlayer()) {
             returnSessionToInline()
+            // The session now belongs to the inline screen; never pause it from onStop.
+            nativePauseHandledSinceResume = true
         } else if (!isZapping()) {
             pauseNativePlayer()
+            nativePauseHandledSinceResume = true
+        } else {
+            // If the Activity is actually stopped during a zap, onStop is still the safe fallback.
+            nativePauseHandledSinceResume = false
         }
         stopCastDiscovery()
         pauseWebView()
@@ -57,11 +71,14 @@ internal class PlaybackLifecycleController(
     }
 
     /**
-     * Do not pause the engine after a finishing fullscreen Activity has handed it back
-     * to the inline player: both screens reference the same ExoPlayer instance.
+     * onPause usually has already paused the engine. Avoid a second pause call, but retain the
+     * fallback for unusual lifecycle paths and for a zap interrupted by an Activity stop.
      */
     fun onStopAfterSuper() {
         if (isFinishing() && isFromInlinePlayer()) return
-        pauseNativePlayer()
+        if (!nativePauseHandledSinceResume) {
+            pauseNativePlayer()
+            nativePauseHandledSinceResume = true
+        }
     }
 }
