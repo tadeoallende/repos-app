@@ -786,7 +786,7 @@
         },
         {
           "name": "Reproductor 3 (WebView)",
-          "iframe": "https://la14hd.com/vivo/canales.php?stream=tycsports",
+          "iframe": "https://la18hd.su/vivo/canales.php?stream=tycsports",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
@@ -970,6 +970,73 @@
         }
       ]
     },
+            {
+      "name": "ESPN 5",
+      "logo": "https://bestleague.pl/img/espn5.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://barinaslive1.boldmss.com/ESPN/ESPN.isml/ESPN.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+            {
+      "name": "ESPN 6",
+      "logo": "https://bestleague.pl/img/espn6.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://barinaslive1.boldmss.com/ESPN_6/ESPN_6.isml/ESPN_6.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+                {
+      "name": "ESPN 7",
+      "logo": "https://bestleague.pl/img/espn7.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://barinaslive1.boldmss.com/ESPN_7/ESPN_7.isml/ESPN_7.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    
     {
       "name": "ESPN Premium",
       "logo": "https://bestleague.pl/img/espnpr.webp",
@@ -992,7 +1059,7 @@
         },
         {
           "name": "Reproductor 2 (WebView)",
-          "iframe": "https://bantel-cdn1.iptvperu.tv:1936/btnscrtn/espn_premium.stream/playlist.m3u8",
+          "iframe": "https://la18hd.su/vivo/canales.php?stream=espnpremium",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
@@ -1021,8 +1088,8 @@
           "drmKey": null
         },
         {
-          "name": "Reproductor 2 (WebView, probablemente necesites un mouse)",
-          "iframe": "https://tvf90.com/5.php?stream=tntsports",
+          "name": "Reproductor 2 (WebView)",
+          "iframe": "https://welivesportz.cfd/futbol/tntsportarg.php",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
