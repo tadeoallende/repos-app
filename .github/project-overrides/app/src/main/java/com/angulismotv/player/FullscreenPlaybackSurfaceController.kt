@@ -57,7 +57,7 @@ internal class FullscreenPlaybackSurfaceController(
     }
 
     fun configureNativePlayerFocus() {
-        if (!isTV()) return
+        if (!FullscreenPlaybackSurfacePolicy.shouldRequestNativeFocus(isTV())) return
         playerView.isFocusable = true
         playerView.isFocusableInTouchMode = true
         playerView.requestFocus()
