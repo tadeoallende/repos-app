@@ -96,6 +96,48 @@ def token_dimensions():
         '<dimen name="player_channel_logo_size">46dp</dimen>',
         '<dimen name="player_transport_button_gap">8dp</dimen>',
         '<dimen name="player_utility_button_gap">4dp</dimen>',
+        '<dimen name="header_height_tv">64dp</dimen>',
+        '<dimen name="header_container_elevation">4dp</dimen>',
+        '<dimen name="bottom_navigation_elevation">2dp</dimen>',
+        '<dimen name="navigation_rail_elevation">4dp</dimen>',
+        '<dimen name="tv_navigation_rail_item_height">56dp</dimen>',
+        '<dimen name="tv_navigation_rail_item_margin_horizontal">8dp</dimen>',
+        '<dimen name="tv_navigation_rail_item_gap">6dp</dimen>',
+        '<dimen name="tv_navigation_rail_item_label_padding_end">16dp</dimen>',
+        '<dimen name="text_size_navigation_label">15sp</dimen>',
+        '<dimen name="inline_player_loading_indicator_size">36dp</dimen>',
+        '<dimen name="inline_player_error_margin">20dp</dimen>',
+        '<dimen name="inline_player_error_padding">10dp</dimen>',
+        '<dimen name="inline_player_error_text_size_mobile">12sp</dimen>',
+        '<dimen name="inline_player_error_text_size_tv">14sp</dimen>',
+        '<dimen name="text_size_tv_player_empty_title">20sp</dimen>',
+        '<dimen name="inline_timeline_height_tv">24dp</dimen>',
+        '<dimen name="inline_timeline_margin_horizontal_tv">8dp</dimen>',
+        '<dimen name="inline_timeline_margin_bottom_tv">46dp</dimen>',
+        '<dimen name="inline_timeline_padding_horizontal_tv">7dp</dimen>',
+        '<dimen name="inline_timeline_time_width_tv">40dp</dimen>',
+        '<dimen name="inline_timeline_text_size_tv">11sp</dimen>',
+        '<dimen name="inline_seekbar_height_tv">20dp</dimen>',
+        '<dimen name="inline_controls_padding_horizontal_tv">6dp</dimen>',
+        '<dimen name="inline_channel_logo_size_tv">28dp</dimen>',
+        '<dimen name="inline_channel_name_text_size_tv">14sp</dimen>',
+        '<dimen name="tv_current_channel_info_padding_horizontal">16dp</dimen>',
+        '<dimen name="tv_current_channel_info_padding_top">28dp</dimen>',
+        '<dimen name="tv_current_channel_info_padding_bottom">12dp</dimen>',
+        '<dimen name="tv_channels_search_panel_width">320dp</dimen>',
+        '<dimen name="tv_channels_search_elevation">9dp</dimen>',
+        '<dimen name="channels_search_icon_size">20dp</dimen>',
+        '<dimen name="tv_player_action_row_margin_top">10dp</dimen>',
+        '<dimen name="tv_player_action_row_padding_horizontal">2dp</dimen>',
+        '<dimen name="tv_player_action_button_padding">12dp</dimen>',
+        '<dimen name="tv_player_action_button_margin_end">10dp</dimen>',
+        '<dimen name="tv_channels_section_title_text_size">21sp</dimen>',
+        '<dimen name="tv_channels_subtitle_margin_top">2dp</dimen>',
+        '<dimen name="tv_channels_scroll_hint_height">18dp</dimen>',
+        '<dimen name="channels_error_text_size">15sp</dimen>',
+        '<dimen name="inline_timeline_padding_horizontal_mobile">7dp</dimen>',
+        '<dimen name="channels_section_header_padding_horizontal_mobile">12dp</dimen>',
+        '<dimen name="channels_section_header_padding_bottom_mobile">2dp</dimen>',
     )
     missing_dimensions = [value for value in extra_dimensions if value.split('"')[1] not in s]
     if missing_dimensions:
@@ -401,6 +443,255 @@ def update_xml():
     set_view_attributes(main, {
         "header_search_button": {"android:layout_marginEnd": "@dimen/header_search_button_margin_end_mobile"},
         "header_clock": {"android:visibility": "gone"},
+    })
+
+
+    # Centraliza las medidas de la cabecera y la navegación sin alterar su geometría.
+    main = L / "activity_main.xml"
+    set_view_attributes(main, {
+        "main_container": {
+            "android:layout_marginStart": "@dimen/tv_navigation_rail_collapsed_width",
+            "android:layout_marginTop": "@dimen/header_height_tv",
+        },
+        "bottom_navigation": {
+            "android:layout_height": "@dimen/bottom_nav_height",
+            "android:elevation": "@dimen/bottom_navigation_elevation",
+        },
+        "header_container": {
+            "android:layout_height": "@dimen/header_height_tv",
+            "android:elevation": "@dimen/header_container_elevation",
+        },
+        "logo_image": {
+            "android:layout_width": "@dimen/header_logo_width",
+            "android:layout_height": "@dimen/header_logo_height_tv",
+            "android:layout_marginStart": "@dimen/header_logo_margin_start_tv",
+        },
+        "side_menu": {
+            "android:layout_width": "@dimen/tv_navigation_rail_collapsed_width",
+            "android:layout_marginTop": "@dimen/header_height_tv",
+            "android:elevation": "@dimen/navigation_rail_elevation",
+        },
+        "menu_channels": {
+            "android:layout_height": "@dimen/tv_navigation_rail_item_height",
+            "android:layout_marginHorizontal": "@dimen/tv_navigation_rail_item_margin_horizontal",
+        },
+        "menu_agenda": {
+            "android:layout_height": "@dimen/tv_navigation_rail_item_height",
+            "android:layout_marginHorizontal": "@dimen/tv_navigation_rail_item_margin_horizontal",
+            "android:layout_marginTop": "@dimen/tv_navigation_rail_item_gap",
+        },
+        "menu_channels_text": {
+            "android:paddingEnd": "@dimen/tv_navigation_rail_item_label_padding_end",
+            "android:textSize": "@dimen/text_size_navigation_label",
+        },
+        "menu_agenda_text": {
+            "android:paddingEnd": "@dimen/tv_navigation_rail_item_label_padding_end",
+            "android:textSize": "@dimen/text_size_navigation_label",
+        },
+    })
+
+    tv = L / "fragment_channels_tv.xml"
+    set_view_attributes(tv, {
+        "inline_progress_bar": {
+            "android:layout_width": "@dimen/inline_player_loading_indicator_size",
+            "android:layout_height": "@dimen/inline_player_loading_indicator_size",
+        },
+        "inline_error_text": {
+            "android:layout_margin": "@dimen/inline_player_error_margin",
+            "android:padding": "@dimen/inline_player_error_padding",
+            "android:textSize": "@dimen/inline_player_error_text_size_tv",
+        },
+        "tv_player_empty_state": {"android:padding": "@dimen/spacing_xl"},
+        "tv_player_empty_title": {"android:textSize": "@dimen/text_size_tv_player_empty_title"},
+        "inline_timeline_container": {
+            "android:layout_height": "@dimen/inline_timeline_height_tv",
+            "android:layout_marginStart": "@dimen/inline_timeline_margin_horizontal_tv",
+            "android:layout_marginEnd": "@dimen/inline_timeline_margin_horizontal_tv",
+            "android:layout_marginBottom": "@dimen/inline_timeline_margin_bottom_tv",
+            "android:paddingStart": "@dimen/inline_timeline_padding_horizontal_tv",
+            "android:paddingEnd": "@dimen/inline_timeline_padding_horizontal_tv",
+        },
+        "inline_time_current": {
+            "android:layout_width": "@dimen/inline_timeline_time_width_tv",
+            "android:textSize": "@dimen/inline_timeline_text_size_tv",
+        },
+        "inline_seek_bar": {"android:layout_height": "@dimen/inline_seekbar_height_tv"},
+        "inline_time_duration": {
+            "android:layout_width": "@dimen/inline_timeline_time_width_tv",
+            "android:textSize": "@dimen/inline_timeline_text_size_tv",
+        },
+        "inline_controls_bar": {
+            "android:paddingStart": "@dimen/inline_controls_padding_horizontal_tv",
+            "android:paddingEnd": "@dimen/inline_controls_padding_horizontal_tv",
+        },
+        "inline_channel_logo": {
+            "android:layout_width": "@dimen/inline_channel_logo_size_tv",
+            "android:layout_height": "@dimen/inline_channel_logo_size_tv",
+        },
+        "inline_channel_name": {
+            "android:layout_marginStart": "@dimen/inline_channel_name_margin_start_mobile",
+            "android:textSize": "@dimen/inline_channel_name_text_size_tv",
+        },
+        "tv_current_channel_info": {
+            "android:paddingStart": "@dimen/tv_current_channel_info_padding_horizontal",
+            "android:paddingEnd": "@dimen/tv_current_channel_info_padding_horizontal",
+            "android:paddingTop": "@dimen/tv_current_channel_info_padding_top",
+            "android:paddingBottom": "@dimen/tv_current_channel_info_padding_bottom",
+        },
+        "tv_current_channel_logo": {
+            "android:layout_width": "@dimen/inline_channel_logo_size_tv",
+            "android:layout_height": "@dimen/inline_channel_logo_size_tv",
+        },
+        "tv_current_channel_name": {"android:textSize": "@dimen/text_size_channel_name_tv"},
+        "tv_current_channel_category": {"android:textSize": "@dimen/text_size_caption"},
+        "channels_search_container": {
+            "android:layout_width": "@dimen/tv_channels_search_panel_width",
+            "android:layout_marginTop": "@dimen/spacing_md",
+            "android:layout_marginEnd": "@dimen/spacing_md",
+            "android:paddingHorizontal": "@dimen/spacing_xs",
+            "android:paddingVertical": "@dimen/spacing_xs",
+            "android:elevation": "@dimen/tv_channels_search_elevation",
+        },
+        "btn_search": {
+            "android:layout_width": "@dimen/channels_search_icon_size",
+            "android:layout_height": "@dimen/channels_search_icon_size",
+        },
+        "search_input": {
+            "android:layout_marginStart": "@dimen/search_field_margin_start",
+            "android:textSize": "@dimen/text_size_body",
+        },
+        "tv_player_action_row": {
+            "android:layout_marginTop": "@dimen/tv_player_action_row_margin_top",
+            "android:paddingStart": "@dimen/tv_player_action_row_padding_horizontal",
+            "android:paddingEnd": "@dimen/tv_player_action_row_padding_horizontal",
+        },
+        "tv_inline_channels_button": {
+            "android:layout_width": "@dimen/player_control_size_tv",
+            "android:layout_height": "@dimen/player_control_size_tv",
+            "android:layout_marginEnd": "@dimen/tv_player_action_button_margin_end",
+            "android:padding": "@dimen/tv_player_action_button_padding",
+        },
+        "tv_inline_search_button": {
+            "android:layout_width": "@dimen/player_control_size_tv",
+            "android:layout_height": "@dimen/player_control_size_tv",
+            "android:padding": "@dimen/tv_player_action_button_padding",
+        },
+        "tv_channels_panel": {
+            "android:paddingStart": "@dimen/spacing_sm",
+            "android:paddingEnd": "@dimen/spacing_sm",
+            "android:paddingTop": "@dimen/spacing_xs",
+            "android:paddingBottom": "@dimen/spacing_sm",
+        },
+        "channels_section_title": {"android:textSize": "@dimen/tv_channels_section_title_text_size"},
+        "channels_section_subtitle": {
+            "android:layout_marginTop": "@dimen/tv_channels_subtitle_margin_top",
+            "android:textSize": "@dimen/text_size_label",
+        },
+        "tv_channels_scroll_up": {
+            "android:layout_height": "@dimen/tv_channels_scroll_hint_height",
+            "android:textSize": "@dimen/text_size_caption",
+        },
+        "channels_recycler": {
+            "android:paddingTop": "@dimen/channels_recycler_padding_top_tv",
+            "android:paddingBottom": "@dimen/channels_recycler_padding_bottom_tv",
+            "android:paddingStart": "@dimen/channels_recycler_padding_horizontal_tv",
+            "android:paddingEnd": "@dimen/channels_recycler_padding_horizontal_tv",
+        },
+        "state_container": {"android:padding": "@dimen/spacing_xl"},
+        "error_text": {"android:textSize": "@dimen/channels_error_text_size"},
+        "retry_button": {
+            "android:layout_marginTop": "@dimen/spacing_lg",
+            "android:paddingHorizontal": "@dimen/spacing_xl",
+            "android:paddingVertical": "@dimen/spacing_md",
+            "android:textSize": "@dimen/text_size_body",
+        },
+        "tv_channels_scroll_down": {
+            "android:layout_height": "@dimen/tv_channels_scroll_hint_height",
+            "android:textSize": "@dimen/text_size_caption",
+        },
+        "tv_list_guide": {"android:textSize": "@dimen/text_size_label"},
+    })
+
+    mobile = L / "fragment_channels.xml"
+    set_view_attributes(mobile, {
+        "inline_progress_bar": {
+            "android:layout_width": "@dimen/inline_player_loading_indicator_size",
+            "android:layout_height": "@dimen/inline_player_loading_indicator_size",
+        },
+        "inline_error_text": {
+            "android:layout_margin": "@dimen/inline_player_error_margin",
+            "android:padding": "@dimen/inline_player_error_padding",
+            "android:textSize": "@dimen/inline_player_error_text_size_mobile",
+        },
+        "tv_player_empty_state": {"android:padding": "@dimen/spacing_md"},
+        "inline_timeline_container": {
+            "android:layout_height": "@dimen/inline_timeline_height_mobile",
+            "android:layout_marginStart": "@dimen/inline_timeline_margin_horizontal_mobile",
+            "android:layout_marginEnd": "@dimen/inline_timeline_margin_horizontal_mobile",
+            "android:layout_marginBottom": "@dimen/inline_timeline_margin_bottom_mobile",
+            "android:paddingStart": "@dimen/inline_timeline_padding_horizontal_mobile",
+            "android:paddingEnd": "@dimen/inline_timeline_padding_horizontal_mobile",
+        },
+        "inline_time_current": {
+            "android:layout_width": "@dimen/inline_timeline_time_width_mobile",
+            "android:textSize": "@dimen/text_size_player_time",
+        },
+        "inline_seek_bar": {"android:layout_height": "@dimen/inline_seekbar_height_mobile"},
+        "inline_time_duration": {
+            "android:layout_width": "@dimen/inline_timeline_time_width_mobile",
+            "android:textSize": "@dimen/text_size_player_time",
+        },
+        "inline_controls_bar": {
+            "android:paddingStart": "@dimen/inline_controls_padding_horizontal",
+            "android:paddingEnd": "@dimen/inline_controls_padding_horizontal",
+            "android:paddingTop": "@dimen/inline_controls_padding_vertical",
+            "android:paddingBottom": "@dimen/inline_controls_padding_vertical",
+        },
+        "inline_channel_logo": {
+            "android:layout_width": "@dimen/inline_channel_logo_size_mobile",
+            "android:layout_height": "@dimen/inline_channel_logo_size_mobile",
+        },
+        "inline_channel_name": {
+            "android:layout_marginStart": "@dimen/inline_channel_name_margin_start_mobile",
+            "android:textSize": "@dimen/inline_channel_name_text_size_mobile",
+        },
+        "channels_section_header": {
+            "android:paddingStart": "@dimen/channels_section_header_padding_horizontal_mobile",
+            "android:paddingEnd": "@dimen/channels_section_header_padding_horizontal_mobile",
+            "android:paddingTop": "@dimen/spacing_sm",
+            "android:paddingBottom": "@dimen/channels_section_header_padding_bottom_mobile",
+        },
+        "channels_section_subtitle": {"android:layout_marginTop": "@dimen/tv_channels_subtitle_margin_top"},
+        "channels_search_container": {
+            "android:paddingHorizontal": "@dimen/channels_search_padding_mobile",
+            "android:paddingTop": "@dimen/channels_search_padding_top_mobile",
+            "android:paddingBottom": "@dimen/channels_search_padding_bottom_mobile",
+        },
+        "btn_search": {
+            "android:layout_width": "@dimen/channels_search_icon_size",
+            "android:layout_height": "@dimen/channels_search_icon_size",
+        },
+        "search_input": {
+            "android:layout_marginStart": "@dimen/search_field_margin_start",
+            "android:textSize": "@dimen/search_field_text_size_mobile",
+        },
+        "categories_scroll": {
+            "android:paddingHorizontal": "@dimen/channels_categories_padding_horizontal_mobile",
+            "android:paddingVertical": "@dimen/channels_categories_padding_vertical_mobile",
+        },
+        "channels_recycler": {
+            "android:paddingHorizontal": "@dimen/channels_recycler_padding_horizontal_mobile",
+            "android:paddingTop": "@dimen/channels_recycler_padding_top_mobile",
+            "android:paddingBottom": "@dimen/channels_recycler_padding_bottom_mobile",
+        },
+        "state_container": {"android:padding": "@dimen/spacing_xl"},
+        "error_text": {"android:textSize": "@dimen/channels_error_text_size"},
+        "retry_button": {
+            "android:layout_marginTop": "@dimen/spacing_lg",
+            "android:paddingHorizontal": "@dimen/spacing_xl",
+            "android:paddingVertical": "@dimen/spacing_md",
+            "android:textSize": "@dimen/text_size_body",
+        },
     })
 
     # Source ZIP had a stray non-XML wrapper at EOF, which prevents AAPT from parsing this layout.
