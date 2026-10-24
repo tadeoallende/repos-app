@@ -48,7 +48,7 @@ internal object InlinePlayerTransferPolicy {
     ): InlinePlayerTransferPlan {
         if (!fromInline || streamUrl.isBlank()) return InlinePlayerTransferPlan.NONE
 
-        return if (streamType == StreamType.IFRAME) {
+        return if (streamType.equals(StreamType.IFRAME, ignoreCase = true)) {
             if (!nativePlayerAvailable && webViewVisible && webViewHasUrl) {
                 InlinePlayerTransferPlan.WEB_VIEW
             } else {
