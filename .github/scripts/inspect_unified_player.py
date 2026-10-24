@@ -63,6 +63,21 @@ def main() -> int:
     print(f"self_assignment_currentStreamUrl={source.count('currentStreamUrl = url')}")
     print(f"self_assignment_currentStreamType={source.count('currentStreamType = type')}")
     print(f"source_lines={len(source.splitlines())}")
+    lines = source.splitlines()
+    context_terms = (
+        "zapRunnable", "clearZappingRunnable", "hideZappingRunnable", "zappingOverlay",
+        "isZapping", "currentChannelIndex", "sourceSelectionController", "orientationController",
+        "recovery by lazy", "sourceSelectionController by lazy", "orientationController by lazy",
+        "getParcelableExtra", "!!", "onBackPressedDispatcher", "onBackPressed"
+    )
+    print("\\n===== CONTEXT LINES =====")
+    for line_number, line in enumerate(lines, 1):
+        if any(term in line for term in context_terms):
+            print(f"{line_number}: {line.rstrip()}")
+    for name in ("zapTo", "clearZapping", "hideZapping", "onKeyDown", "onKeyUp", "handleBack"):
+        for line_number, block in method_blocks(source, name):
+            print(f"\\n===== EXTRA METHOD {name} at {line_number} =====")
+            print(block)
     for name in METHODS:
         blocks = method_blocks(source, name)
         print(f"\n===== METHOD {name}: {len(blocks)} match(es) =====")
