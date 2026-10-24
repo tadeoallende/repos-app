@@ -42,9 +42,28 @@ def promote_lazy_delegate(source: str, property_name: str) -> str:
     source = source[:close_end] + f"\n    private val {property_name} by {property_name}Delegate" + source[close_end:]
     return source
 
+def ensure_keep_screen_on(source: str) -> str:
+    """Keep the player window awake on both mobile and Android TV."""
+    keep_screen_on = "window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)"
+    source = re.sub(
+        r"(?m)^[ \t]*window\.addFlags\(WindowManager\.LayoutParams\.FLAG_KEEP_SCREEN_ON\)\n",
+        "",
+        source,
+    )
+    create_start = source.find("    override fun onCreate(")
+    if create_start < 0:
+        raise RuntimeError("No se encontró onCreate() al activar la pantalla durante la reproducción.")
+    content_view = source.find("        setContentView(R.layout.activity_unified_player)", create_start)
+    next_override = source.find("\n    override fun ", create_start + len("    override fun onCreate("))
+    if content_view < 0 or (next_override >= 0 and content_view > next_override):
+        raise RuntimeError("No se encontró setContentView() dentro de onCreate().")
+    source = source[:content_view] + f"        {keep_screen_on}\n" + source[content_view:]
+    return source
+
+
 def patch_activity(source: str) -> str:
     if "pendingZapAccumulator" in source and "private fun revealControls(temporarily: Boolean)" in source:
-        return source
+        return ensure_keep_screen_on(source)
     source = replace_once(
         source, "package com.angulismotv\n",
         "package com.angulismotv\n\n"
@@ -249,6 +268,7 @@ def patch_activity(source: str) -> str:
     source = replace_once(source, "        recovery.dispose()\n",
                           "        if (recoveryDelegate.isInitialized()) recovery.dispose()\n",
                           "no inicializar recovery solo para destruir")
+    source = ensure_keep_screen_on(source)
     remaining = [(n, line) for n, line in enumerate(source.splitlines(), 1) if "!!" in line]
     if remaining:
         details = "\n".join(f"{n}: {line}" for n, line in remaining)

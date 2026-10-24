@@ -17,6 +17,7 @@ def main() -> int:
         "dispatchPendingZap()",
         "private fun revealControls(temporarily: Boolean)",
         "updateIframeTransportControls()",
+        "window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)",
         'IntentCompat.getParcelableExtra(intent, "current_channel", Channel::class.java)',
         "onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true)",
         "orientationControllerDelegate.isInitialized()",
@@ -32,6 +33,17 @@ def main() -> int:
         raise SystemExit("Persisten patrones que debían eliminarse: " + ", ".join(found))
     if source.count("DeviceHelper.isTV(this)") != 1:
         raise SystemExit("La detección de dispositivo no quedó centralizada en una sola lectura.")
+    keep_screen_on = "window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)"
+    if source.count(keep_screen_on) != 1:
+        raise SystemExit("La pantalla debe mantenerse activa con una única bandera en el reproductor.")
+    create_start = source.index("    override fun onCreate(")
+    create_end = source.index("\n    override fun onResume(", create_start)
+    if keep_screen_on not in source[create_start:create_end]:
+        raise SystemExit("FLAG_KEEP_SCREEN_ON debe configurarse en onCreate() para móvil y Android TV.")
+    immersive_start = source.index("    private fun enableImmersiveFullscreen() {")
+    webview_start = source.index("    // ==================== WEBVIEW", immersive_start)
+    if keep_screen_on in source[immersive_start:webview_start]:
+        raise SystemExit("FLAG_KEEP_SCREEN_ON no debe depender de la configuración inmersiva de móvil.")
     start = source.index("    private fun changeChannel(delta: Int) {")
     end = source.index("    private fun zapTo(index: Int, channel: Channel) {", start)
     change_channel = source[start:end]
