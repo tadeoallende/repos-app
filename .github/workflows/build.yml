@@ -10,6 +10,7 @@ on:
       - '.github/scripts/apply_fullscreen_player_modularization.py'
       - '.github/scripts/apply_fullscreen_surface_modularization.py'
       - '.github/scripts/apply_playback_reload_modularization.py'
+      - '.github/scripts/apply_playback_lifecycle_modularization.py'
       - '.github/scripts/apply_ui_design_system.py'
   workflow_dispatch:
 
@@ -76,6 +77,7 @@ jobs:
           python3 .github/scripts/apply_fullscreen_player_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
           python3 .github/scripts/apply_fullscreen_surface_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
           python3 .github/scripts/apply_playback_reload_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
+          python3 .github/scripts/apply_playback_lifecycle_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
           mkdir -p proyecto/compilacion
           unzip -q -o "$GITHUB_WORKSPACE/project-base.zip" -d proyecto/compilacion
           PROJECT_DIR="$GITHUB_WORKSPACE/proyecto/compilacion"
