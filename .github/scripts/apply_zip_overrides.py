@@ -20,6 +20,17 @@ def replace_once(text: str, old: str, new: str, label: str) -> str:
 
 
 
+def unique_archive_entries(infos: list[zipfile.ZipInfo]) -> list[zipfile.ZipInfo]:
+    """Keep the last occurrence of each archive path, retaining its original ordering."""
+    last_index_by_name: dict[str, int] = {}
+    for index, info in enumerate(infos):
+        last_index_by_name[info.filename] = index
+    return [
+        info for index, info in enumerate(infos)
+        if last_index_by_name[info.filename] == index
+    ]
+
+
 def apply_nebula_visuals(name: str, text: str) -> str:
     """Apply the midnight/nebula palette and polish channel rows without changing their data."""
     if not name.endswith(".xml") or "/res/" not in name:
@@ -2082,13 +2093,20 @@ def main() -> int:
         with zipfile.ZipFile(archive, "r") as source, zipfile.ZipFile(
             temp, "w", compression=zipfile.ZIP_DEFLATED
         ) as target:
-            for info in source.infolist():
+            source_infos = source.infolist()
+            unique_infos = unique_archive_entries(source_infos)
+            duplicate_entries = len(source_infos) - len(unique_infos)
+            for info in unique_infos:
                 name = info.filename
-                data = overlays.get(name, source.read(name))
+                # Use ZipInfo, not the filename: source archives with repeated names otherwise
+                # resolve every read to the last copy and can accidentally preserve duplicates.
+                data = overlays[name] if name in overlays else source.read(info)
                 data = apply_source_optimizations(name, data)
                 target.writestr(info, data)
                 if name in overlays:
                     written.add(name)
+            if duplicate_entries:
+                print(f"Entradas ZIP duplicadas omitidas: {duplicate_entries}")
             for name, content in overlays.items():
                 if name not in written:
                     target.writestr(name, apply_source_optimizations(name, content), compress_type=zipfile.ZIP_DEFLATED)
