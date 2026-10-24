@@ -40,21 +40,35 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name '*.zip' -print -quit)"
+          ZIP="$(find "$GITHUB_WORKSPACE" -maxdepth 1 -type f -name '*.zip' -printf '%p\n' | sort | head -1)"
           if [ -z "$ZIP" ]; then
             echo "::error::No se encontró un ZIP de proyecto en la raíz del repositorio."
             exit 1
           fi
           mkdir -p "$RUNNER_TEMP/proyecto"
           unzip -q -o "$ZIP" -d "$RUNNER_TEMP/proyecto"
-          PUBLIC_KEY="$(find "$RUNNER_TEMP/proyecto" -type f -path '*/app/src/main/res/raw/update_public_key.pem' -print -quit)"
-          GRADLE_FILE="$(find "$RUNNER_TEMP/proyecto" -type f -path '*/app/build.gradle.kts' -print -quit)"
-          if [ -z "$PUBLIC_KEY" ]; then
-            echo "::error::El ZIP no contiene la clave pública update_public_key.pem. Subí el ZIP de la Etapa 31 que incorpora la verificación de firma."
+
+          # Usar la misma raíz más reciente que el workflow de compilación.
+          # El ZIP puede contener una copia antigua y otra versión anidada.
+          SOURCE_ROOT="$RUNNER_TEMP/proyecto/AngulismoTV-limpio (1) (2)"
+          if [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
+            SOURCE_ROOT="$(find "$RUNNER_TEMP/proyecto" -mindepth 2 -name settings.gradle.kts -printf '%h\n' | sort | tail -1)"
+          fi
+          if [ -z "$SOURCE_ROOT" ] || [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
+            echo "::error::No se encontró la raíz Android del ZIP."
+            find "$RUNNER_TEMP/proyecto" -name settings.gradle.kts -print
             exit 1
           fi
-          if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::No se encontró app/build.gradle.kts dentro del ZIP."
+          echo "Raíz seleccionada: $SOURCE_ROOT"
+
+          PUBLIC_KEY="$SOURCE_ROOT/app/src/main/res/raw/update_public_key.pem"
+          GRADLE_FILE="$SOURCE_ROOT/app/build.gradle.kts"
+          if [ ! -f "$PUBLIC_KEY" ]; then
+            echo "::error::La raíz seleccionada no contiene update_public_key.pem. Subí el ZIP que incorpora la verificación de firma."
+            exit 1
+          fi
+          if [ ! -f "$GRADLE_FILE" ]; then
+            echo "::error::La raíz seleccionada no contiene app/build.gradle.kts."
             exit 1
           fi
           python3 - "$GRADLE_FILE" "$GITHUB_OUTPUT" "$PUBLIC_KEY" <<'PY'
