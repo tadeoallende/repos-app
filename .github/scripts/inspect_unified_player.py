@@ -25,20 +25,20 @@ METHODS = (
 
 def method_blocks(source: str, name: str) -> list[tuple[int, str]]:
     declaration = re.compile(
-        r"(?m)^    (?:(?:override|private|protected|internal|public|suspend|final|open)\\s+)*"
-        r"fun\\s+" + re.escape(name) + r"\\b[^\\n]*(?:\\n(?!    (?:override|private|protected|internal|public|suspend|final|open)\\s+fun\\b)[^\\n]*)*"
+        r"(?m)^    (?:(?:override|private|protected|internal|public|suspend|final|open)\s+)*"
+        r"fun\s+" + re.escape(name) + r"\b[^\n]*(?:\n(?!    (?:override|private|protected|internal|public|suspend|final|open)\s+fun\b)[^\n]*)*"
     )
     result = []
     for match in declaration.finditer(source):
         block = match.group(0)
         start = match.start()
         next_method = re.search(
-            r"(?m)^    (?:(?:override|private|protected|internal|public|suspend|final|open)\\s+)*fun\\s+\\w+\\b",
+            r"(?m)^    (?:(?:override|private|protected|internal|public|suspend|final|open)\s+)*fun\s+\w+\b",
             source[match.end():]
         )
         if next_method:
             block += source[match.end():match.end() + next_method.start()]
-        result.append((source.count("\\n", 0, start) + 1, block.rstrip()))
+        result.append((source.count("\n", 0, start) + 1, block.rstrip()))
     return result
 
 
@@ -51,9 +51,9 @@ def main() -> int:
     if not path.is_file():
         raise SystemExit(f"No se encontró {TARGET} en {root}")
     source = path.read_text(encoding="utf-8")
-    is_tv_mentions = len(re.findall(r"\\bisTV\\b", source))
-    dp_declaration = len(re.findall(r"(?m)^\\s*(?:(?:private|protected|internal|public)\\s+)?fun\\s+dp\\s*\\(", source))
-    dp_calls = len(re.findall(r"(?<![\\w.])dp\\s*\\(", source))
+    is_tv_mentions = len(re.findall(r"\bisTV\b", source))
+    dp_declaration = len(re.findall(r"(?m)^\s*(?:(?:private|protected|internal|public)\s+)?fun\s+dp\s*\(", source))
+    dp_calls = len(re.findall(r"(?<![\w.])dp\s*\(", source))
     print("PLAYER_AUDIT_METRICS")
     print(f"non_null_assertions={source.count('!!')}")
     print(f"isTV_mentions={is_tv_mentions}")
