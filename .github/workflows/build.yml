@@ -236,18 +236,10 @@ jobs:
           APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           test -s "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip"
-          ASSETS=("$APK" "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip")
-          NOTES="APK debug para pruebas y fuentes con sistema de diseño visual compartido. Compilado desde el commit $GITHUB_SHA."
-          if [ "${RELEASE_SIGNING_ENABLED:-false}" = "true" ]; then
-            RELEASE_APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-            test -s "$RELEASE_APK"
-            ASSETS+=("$RELEASE_APK")
-            NOTES="$NOTES También se incluye app-release.apk firmado para instalación/actualización."
-          fi
-          gh release create "build-${{ github.run_number }}" "${ASSETS[@]}" \
+          gh release create "build-${{ github.run_number }}" "$APK" "$GITHUB_WORKSPACE/AngulismoTV-ui-estandarizado.zip" \
             --target "$GITHUB_SHA" \
             --title "AngulismoTV build ${{ github.run_number }} (UI estandarizada)" \
-            --notes "$NOTES" \
+            --notes "APK debug para pruebas y fuentes con sistema de diseño visual compartido. El APK release firmado, si está configurado, queda como artefacto de Actions hasta verificar compatibilidad del certificado. Commit $GITHUB_SHA." \
             --prerelease
 
       - name: Resumen de errores
