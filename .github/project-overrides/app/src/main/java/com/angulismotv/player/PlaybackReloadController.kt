@@ -11,7 +11,6 @@ internal class PlaybackReloadController<T : Any>(
     private val isHttpUrl: (String) -> Boolean,
     private val isIframeType: (String) -> Boolean,
     private val prepareForReload: () -> Unit,
-    private val setCurrentStream: (String, String) -> Unit,
     private val reloadIframe: (String) -> Unit,
     private val reloadStream: (String, String) -> Unit,
     private val fallbackToFirstOption: (T) -> Unit,
@@ -30,7 +29,6 @@ internal class PlaybackReloadController<T : Any>(
         val url = currentUrl()
         val type = currentType()
         if (url.isNotBlank() && isHttpUrl(url)) {
-            setCurrentStream(url, type)
             if (isIframeType(type)) {
                 reloadIframe(url)
             } else {
