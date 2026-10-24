@@ -119,28 +119,45 @@ def patch_activity(source: str) -> str:
         "        }\n",
         "eliminar !! en selección filtrada"
     )
-    source = replace_once(
-        source,
-        "            currentChannel = allChannels[currentChannelIndex]\n"
-        "            loadChannelInfo(currentChannel!!)\n"
-        "            updateFavoriteButton(currentChannel!!)\n\n"
-        "            if (!currentChannel!!.options.isNullOrEmpty() && requestedSourceIndex in currentChannel!!.options!!.indices) {\n"
-        "                tryOption(currentChannel!!, requestedSourceIndex)\n"
-        "            } else {\n"
-        "                playFirstValidOption(currentChannel!!)\n"
-        "            }\n",
-        "            val selectedChannel = allChannels[currentChannelIndex]\n"
-        "            currentChannel = selectedChannel\n"
-        "            loadChannelInfo(selectedChannel)\n"
-        "            updateFavoriteButton(selectedChannel)\n\n"
-        "            val options = selectedChannel.options.orEmpty()\n"
-        "            if (options.isNotEmpty() && requestedSourceIndex in options.indices) {\n"
-        "                tryOption(selectedChannel, requestedSourceIndex)\n"
-        "            } else {\n"
-        "                playFirstValidOption(selectedChannel)\n"
-        "            }\n",
-        "usar canal y opciones locales"
+    channel_block_pattern = re.compile(
+        r"(?m)^(?P<indent>[ \t]*)currentChannel = allChannels\[currentChannelIndex\]\n"
+        r"(?P=indent)loadChannelInfo\(currentChannel!!\)\n"
+        r"(?P=indent)updateFavoriteButton\(currentChannel!!\)\n"
     )
+    def replace_channel_block(match: re.Match[str]) -> str:
+        indent = match.group("indent")
+        child = indent + "    "
+        return (
+            f"{indent}val selectedChannel = allChannels.getOrNull(currentChannelIndex) ?: return\n"
+            f"{indent}currentChannel = selectedChannel\n"
+            f"{indent}loadChannelInfo(selectedChannel)\n"
+            f"{indent}updateFavoriteButton(selectedChannel)\n"
+            f"{indent}val selectedOptions = selectedChannel.options.orEmpty()\n"
+        )
+    source, channel_block_count = channel_block_pattern.subn(replace_channel_block, source, count=1)
+    if channel_block_count != 1:
+        raise RuntimeError("No se encontró el bloque de canal actual al eliminar aserciones !!.")
+
+    option_block_pattern = re.compile(
+        r"(?m)^(?P<indent>[ \t]*)if \(!currentChannel!!\.options\.isNullOrEmpty\(\) && requestedSourceIndex in currentChannel!!\.options!!\.indices\) \{\n"
+        r"(?P=indent)    tryOption\(currentChannel!!, requestedSourceIndex\)\n"
+        r"(?P=indent)\} else \{\n"
+        r"(?P=indent)    playFirstValidOption\(currentChannel!!\)\n"
+        r"(?P=indent)\}\n"
+    )
+    def replace_option_block(match: re.Match[str]) -> str:
+        indent = match.group("indent")
+        child = indent + "    "
+        return (
+            f"{indent}if (selectedOptions.isNotEmpty() && requestedSourceIndex in selectedOptions.indices) {{\n"
+            f"{child}tryOption(selectedChannel, requestedSourceIndex)\n"
+            f"{indent}}} else {{\n"
+            f"{child}playFirstValidOption(selectedChannel)\n"
+            f"{indent}}}\n"
+        )
+    source, option_block_count = option_block_pattern.subn(replace_option_block, source, count=1)
+    if option_block_count != 1:
+        raise RuntimeError("No se encontró el bloque de opciones al eliminar aserciones !!.")
     source = replace_once(source, "        loadChannelInfo(currentChannel!!)\n",
                           "        currentChannel?.let(::loadChannelInfo)\n",
                           "eliminar !! durante el zapping")
