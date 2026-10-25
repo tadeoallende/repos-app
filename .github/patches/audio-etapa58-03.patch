@@ -9,7 +9,7 @@
  import org.junit.Test
  
  class PlayerAudioDiagnosticPolicyTest {
-@@ -42,4 +44,23 @@
+@@ -42,4 +44,38 @@
              PlayerAudioDiagnosticPolicy.causeChain(root, 5)
          )
      }
