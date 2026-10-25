@@ -1,5 +1,6 @@
 {
   "channels": [
+    // ==================== NOTICIAS ====================
     {
       "name": "América TV",
       "logo": "https://bestleague.pl/img/america.webp",
@@ -111,9 +112,9 @@
           "drmKey": null
         },
         {
-          "name": "Reproductor 2 (WebView)",
-          "iframe": "https://la18hd.su/vivo/canales.php?stream=telefe",
-          "streamType": "iframe",
+          "name": "Reproductor 2",
+          "iframe": "http://201.217.246.42:44310/Live/e35048d37817ddfa725d9d32ceb8c7f3/telefe.playlist.m3u8",
+          "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
@@ -514,6 +515,8 @@
         }
       ]
     },
+
+    // ==================== INTERNACIONALES ====================
     {
       "name": "TeleSur",
       "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/TeleSUR-Logo.svg/1280px-TeleSUR-Logo.svg.png",
@@ -690,6 +693,8 @@
         }
       ]
     },
+
+    // ==================== DEPORTES ====================
     {
       "name": "DSports",
       "logo": "https://bestleague.pl/img/dsports.webp",
@@ -786,7 +791,7 @@
         },
         {
           "name": "Reproductor 3 (WebView)",
-          "iframe": "https://la18hd.su/vivo/canales.php?stream=tycsports",
+          "iframe": "https://la14hd.com/vivo/canales.php?stream=tycsports",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
@@ -948,9 +953,9 @@
         }
       ]
     },
-        {
-      "name": "ESPN 4",
-      "logo": "https://bestleague.pl/img/espn4.webp",
+       {
+      "name": "LPF Play",
+      "logo": "https://lpf.vod.immergo.tv/lpf-immergo/uploaded/9ac81436-28e2-4e50-9775-e69dc8192797.png",
       "category": "deportes",
       "show": true,
       "streamUrl": null,
@@ -962,81 +967,22 @@
       "options": [
         {
           "name": "Reproductor 1",
-          "iframe": "http://138.59.227.20:8000/play/a09a/index.m3u8",
+          "iframe": "https://jn328.sportvideodata.com/7516490217661226156_QNyIzNhZGO4MTYxQTL5UmZ50SNzUDNtQGOmlTL1UDN0AzM1YzL1JnLpBXYzRncvB3cu8WZklmd/output-0.m3u8",
           "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
-        }
-      ]
-    },
-            {
-      "name": "ESPN 5",
-      "logo": "https://bestleague.pl/img/espn5.webp",
-      "category": "deportes",
-      "show": true,
-      "streamUrl": null,
-      "streamType": "hls",
-      "headers": null,
-      "drmKeyId": null,
-      "drmKey": null,
-      "sources": [],
-      "options": [
+        },
         {
-          "name": "Reproductor 1",
-          "iframe": "https://barinaslive1.boldmss.com/ESPN/ESPN.isml/ESPN.m3u8",
-          "streamType": "hls",
+          "name": "Reproductor 2 (WebView)",
+          "iframe": "https://bantel-cdn1.iptvperu.tv:1936/btnscrtn/espn_premium.stream/playlist.m3u8",
+          "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
         }
       ]
     },
-            {
-      "name": "ESPN 6",
-      "logo": "https://bestleague.pl/img/espn6.webp",
-      "category": "deportes",
-      "show": true,
-      "streamUrl": null,
-      "streamType": "hls",
-      "headers": null,
-      "drmKeyId": null,
-      "drmKey": null,
-      "sources": [],
-      "options": [
-        {
-          "name": "Reproductor 1",
-          "iframe": "https://barinaslive1.boldmss.com/ESPN_6/ESPN_6.isml/ESPN_6.m3u8",
-          "streamType": "hls",
-          "headers": null,
-          "drmKeyId": null,
-          "drmKey": null
-        }
-      ]
-    },
-                {
-      "name": "ESPN 7",
-      "logo": "https://bestleague.pl/img/espn7.webp",
-      "category": "deportes",
-      "show": true,
-      "streamUrl": null,
-      "streamType": "hls",
-      "headers": null,
-      "drmKeyId": null,
-      "drmKey": null,
-      "sources": [],
-      "options": [
-        {
-          "name": "Reproductor 1",
-          "iframe": "https://barinaslive1.boldmss.com/ESPN_7/ESPN_7.isml/ESPN_7.m3u8",
-          "streamType": "hls",
-          "headers": null,
-          "drmKeyId": null,
-          "drmKey": null
-        }
-      ]
-    },
-    
     {
       "name": "ESPN Premium",
       "logo": "https://bestleague.pl/img/espnpr.webp",
@@ -1059,7 +1005,7 @@
         },
         {
           "name": "Reproductor 2 (WebView)",
-          "iframe": "https://la18hd.su/vivo/canales.php?stream=espnpremium",
+          "iframe": "https://bantel-cdn1.iptvperu.tv:1936/btnscrtn/espn_premium.stream/playlist.m3u8",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
@@ -1088,31 +1034,9 @@
           "drmKey": null
         },
         {
-          "name": "Reproductor 2 (WebView)",
-          "iframe": "https://welivesportz.cfd/futbol/tntsportarg.php",
+          "name": "Reproductor 2 (WebView, probablemente necesites un mouse)",
+          "iframe": "https://tvf90.com/5.php?stream=tntsports",
           "streamType": "iframe",
-          "headers": null,
-          "drmKeyId": null,
-          "drmKey": null
-        }
-      ]
-    },
-        {
-      "name": "NBA TV (USA)",
-      "logo": "",
-      "category": "deportes",
-      "show": true,
-      "streamUrl": null,
-      "streamType": "hls",
-      "headers": null,
-      "drmKeyId": null,
-      "drmKey": null,
-      "sources": [],
-      "options": [
-        {
-          "name": "Reproductor 1",
-          "iframe": "http://23.237.104.106:8080/USA_NBA/index.m3u8",
-          "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
@@ -1198,6 +1122,8 @@
         }
       ]
     },
+
+    // ==================== PELICULAS ====================
     {
       "name": "Cinecanal",
       "logo": "https://angulismotv.pages.dev/assets/logos/app/CINECANAL.png",
@@ -2070,6 +1996,8 @@
         }
       ]
     },
+
+    // ==================== ESTILO DE VIDA ====================
     {
       "name": "El Gourmet",
       "logo": "https://angulismotv.pages.dev/assets/logos/app/EL_GOURMET.png",
@@ -2160,6 +2088,8 @@
         }
       ]
     },
+
+    // ==================== MUSICALES ====================
     {
       "name": "Ciudad Magazine",
       "logo": "https://bestleague.pl/img/ciudad.webp",
@@ -2360,6 +2290,8 @@
         }
       ]
     },
+
+    // ==================== INFANTILES ====================
     {
       "name": "Disney Channel",
       "logo": "https://bestleague.pl/img/disney.webp",
@@ -2576,6 +2508,8 @@
         }
       ]
     },
+
+    // ==================== EDUCATIVOS ====================
     {
       "name": "TECtv",
       "logo": "https://angulismotv.pages.dev/assets/logos/app/TEC.png",
@@ -2628,6 +2562,8 @@
         }
       ]
     },
+
+    // ==================== DOCUMENTALES ====================
     {
       "name": "History",
       "logo": "https://bestleague.pl/img/history.webp",
@@ -2828,9 +2764,33 @@
         }
       ]
     },
+
+    // ==================== EVENTOS ====================
+        {
+      "name": "Disney+ 1",
+      "logo": "https://angulismotv.pages.dev/assets/logos/app/disney.png",
+      "category": "eventos",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://gatonet.site/api/proxy?url=https%3A%2F%2Fteveplay.net%2Fapi%2Fstream%2Fmedia%3Fid%3D11c7cd02ea64ef2d6b7486a4f1454967",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
     {
       "name": "Evento 1",
-      "logo": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhu3DnKA26pZam_crvfw71Ssq3Qxd5ERHxe7dU_abYfJN02bWYEXhSRGG3SS3ps8XVDSBsXF3yVeAkwVcwQWLJ_sxX8uDKzm3oaVXbgpeLqFP58fZ0p6we9XjGzjTyiZb5nJe9kr6qTfv94gsOLP4Vy8dvXCgCB8tQMbi1klPUXt0OYX7brRTX7T0_FvvY/s900/ChocoPop%20TV%20Eventos.png",
+      "logo": "https://angulismotv.pages.dev/assets/logos/app/EVENTOS1.png",
       "category": "eventos",
       "show": true,
       "streamUrl": null,
@@ -2852,7 +2812,7 @@
     },
     {
       "name": "Evento 2",
-      "logo": "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEhu3DnKA26pZam_crvfw71Ssq3Qxd5ERHxe7dU_abYfJN02bWYEXhSRGG3SS3ps8XVDSBsXF3yVeAkwVcwQWLJ_sxX8uDKzm3oaVXbgpeLqFP58fZ0p6we9XjGzjTyiZb5nJe9kr6qTfv94gsOLP4Vy8dvXCgCB8tQMbi1klPUXt0OYX7brRTX7T0_FvvY/s900/ChocoPop%20TV%20Eventos.png",
+      "logo": "https://angulismotv.pages.dev/assets/logos/app/EVENTOS2.png",
       "category": "eventos",
       "show": true,
       "streamUrl": null,
