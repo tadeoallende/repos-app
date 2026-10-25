@@ -1,0 +1,13 @@
+--- a/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt
++++ b/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt
+@@
+-    private var lastAudioErrorHost: String? = null
++    private var lastAudioErrorGeneration = -1
+@@
+-                lastAudioErrorHost = StreamUtils.hostForLog(url)
++                lastAudioErrorGeneration = generation
+@@
+-            // Se conserva entre reconexiones, pero solo se muestra si es del mismo servidor.
+-            lastError = lastAudioError.takeIf { lastAudioErrorHost == StreamUtils.hostForLog(currentStreamUrl) }
++            // Conservar entre reconexiones de la misma sesión, nunca al cambiar de canal/fuente.
++            lastError = lastAudioError.takeIf { lastAudioErrorGeneration == playerGeneration }
