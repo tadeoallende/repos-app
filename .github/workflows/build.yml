@@ -67,7 +67,7 @@ jobs:
           unzip -q "$RUNNER_TEMP/build-258.zip" -d "$RUNNER_TEMP/source"
           SOURCE_ROOT="$RUNNER_TEMP/source"
           if [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
-            SOURCE_ROOT="$(find "$RUNNER_TEMP/source" -mindepth 1 -name settings.gradle.kts -printf '%h\\n' | head -1)"
+            SOURCE_ROOT="$(dirname "$(find "$RUNNER_TEMP/source" -mindepth 1 -name settings.gradle.kts -print -quit)")"
           fi
           test -n "$SOURCE_ROOT" && test -f "$SOURCE_ROOT/settings.gradle.kts"
           echo "SOURCE_ROOT=$SOURCE_ROOT" >> "$GITHUB_ENV"
