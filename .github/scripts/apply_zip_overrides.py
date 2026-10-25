@@ -1328,15 +1328,22 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = replace_once(text, "const val DEFAULT_DELAY_MS = 300L", "const val DEFAULT_DELAY_MS = 180L", "reducir latencia de búsqueda")
 
     elif name == "app/src/main/java/com/angulismotv/data/ChannelCatalog.kt":
-        text = replace_once(text,
-'''            terms.all { it in searchableText } ||
+        old_search = '''            terms.all { it in searchableText } ||
                 searchableText.replace(" ", "").contains(compactQuery)
-''',
-'''            val tokens = searchableText.split(' ')
+'''
+        new_search = '''            val tokens = searchableText.split(' ')
             terms.all { term ->
                 tokens.any { token -> token.startsWith(term) || (term.length >= 3 && token.contains(term)) }
             } || searchableText.replace(" ", "").contains(compactQuery)
-''', "buscar por prefijos y fragmentos")
+'''
+        if old_search in text or new_search in text:
+            text = replace_once(text, old_search, new_search, "buscar por prefijos y fragmentos")
+        elif "fun searchByName(channels: List<Channel>, query: String): List<Channel>" in text:
+            # Newer sources moved interactive catalogue queries into ChannelFilterPolicy;
+            # don't force a patch designed for a removed searchableText implementation.
+            pass
+        else:
+            raise RuntimeError("No se pudo aplicar buscar por prefijos y fragmentos: variante de ChannelCatalog desconocida.")
 
     elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
         text = replace_once(text,
