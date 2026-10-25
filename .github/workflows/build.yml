@@ -76,6 +76,20 @@ jobs:
             exit 1
           fi
           echo "Usando ZIP: $ZIP"
+          # Build 258 fue la última base completa verificada. Fijar el objeto Git del
+          # ZIP validado evita que un archivo con el mismo nombre pero otro contenido
+          # introduzca un downgrade silencioso.
+          if [ "$ZIP" = "AngulismoTV-limpio (1) (3).zip" ]; then
+            EXPECTED_BASE_BLOB="1cda5235bbaf7bb3ee54bc7335f233893f9acad2"
+            ACTUAL_BASE_BLOB="$(git hash-object "$ZIP")"
+            if [ "$ACTUAL_BASE_BLOB" != "$EXPECTED_BASE_BLOB" ]; then
+              echo "::error::La ZIP base no coincide con la fuente validada en build 258."
+              echo "Esperado: $EXPECTED_BASE_BLOB"
+              echo "Obtenido: $ACTUAL_BASE_BLOB"
+              exit 1
+            fi
+            echo "Base build 258 verificada por blob SHA: $ACTUAL_BASE_BLOB"
+          fi
           mkdir -p proyecto/original
           unzip -q -o "$ZIP" -d proyecto/original
 
