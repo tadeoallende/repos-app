@@ -393,8 +393,6 @@ def update_xml():
     for file, view, style in [
         ("item_channel.xml", "channel_number", "TextAppearance.AngulismoTV.ChannelNumber"),
         ("item_channel.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName.RowMobile"),
-        ("item_channel_tv.xml", "channel_number", "TextAppearance.AngulismoTV.ChannelNumber"),
-        ("item_channel_tv.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName.RowTV"),
         ("item_channel_side.xml", "channel_number", "TextAppearance.AngulismoTV.ChannelNumber"),
         ("item_channel_side.xml", "channel_name", "TextAppearance.AngulismoTV.ChannelName.TV"),
         ("item_category_side.xml", "category_name", "TextAppearance.AngulismoTV.CategoryName"),
@@ -831,24 +829,6 @@ def update_xml():
             'android:layout_marginEnd="4dp"': 'android:layout_marginEnd="@dimen/channel_row_options_margin_mobile"',
             'android:layout_width="16dp" android:layout_height="16dp"': 'android:layout_width="@dimen/channel_row_play_icon_size" android:layout_height="@dimen/channel_row_play_icon_size"',
         },
-        "item_channel_tv.xml": {
-            'android:paddingStart="8dp"': 'android:paddingStart="@dimen/channel_row_padding_horizontal_mobile"',
-            'android:paddingEnd="8dp"': 'android:paddingEnd="@dimen/channel_row_padding_horizontal_mobile"',
-            'android:paddingTop="4dp"': 'android:paddingTop="@dimen/spacing_xs"',
-            'android:paddingBottom="4dp"': 'android:paddingBottom="@dimen/spacing_xs"',
-            'android:minHeight="50dp"': 'android:minHeight="@dimen/channel_row_min_height_tv"',
-            'android:layout_marginStart="2dp"': 'android:layout_marginStart="@dimen/channel_row_margin_horizontal_tv"',
-            'android:layout_marginEnd="2dp"': 'android:layout_marginEnd="@dimen/channel_row_margin_horizontal_tv"',
-            'android:layout_marginTop="2dp"': 'android:layout_marginTop="@dimen/channel_row_margin_vertical_tv"',
-            'android:layout_marginBottom="2dp"': 'android:layout_marginBottom="@dimen/channel_row_margin_vertical_tv"',
-            'android:layout_width="24dp"': 'android:layout_width="@dimen/channel_row_number_width"',
-            'android:layout_width="40dp" android:layout_height="40dp"': 'android:layout_width="@dimen/channel_logo_size_tv" android:layout_height="@dimen/channel_logo_size_tv"',
-            'android:padding="4dp"': 'android:padding="@dimen/channel_row_logo_padding"',
-            'android:layout_marginStart="9dp"': 'android:layout_marginStart="@dimen/channel_row_name_margin_tv"',
-            'android:layout_width="15dp" android:layout_height="15dp"': 'android:layout_width="@dimen/channel_row_options_icon_size_tv" android:layout_height="@dimen/channel_row_options_icon_size_tv"',
-            'android:layout_marginEnd="5dp"': 'android:layout_marginEnd="@dimen/channel_row_options_margin_tv"',
-            'android:layout_width="16dp" android:layout_height="16dp"': 'android:layout_width="@dimen/channel_row_play_icon_size" android:layout_height="@dimen/channel_row_play_icon_size"',
-        },
         "item_channel_side.xml": {
             'android:minHeight="58dp"': 'android:minHeight="@dimen/side_channel_row_min_height"',
             'android:paddingStart="10dp"': 'android:paddingStart="@dimen/side_channel_row_padding_horizontal"',
@@ -1176,7 +1156,7 @@ def design_doc():
 - app/src/main/res/values/colors.xml: paleta Aqua espacial, superficies, contraste y estados.
 - app/src/main/res/values/dimens.xml: escalas de espaciado/tipografía y tamaños adaptados a móvil y Android TV.
 - app/src/main/res/values/styles.xml: estilos comunes de textos, chips y controles del reproductor.
-- app/src/main/res/layout/item_channel.xml e item_channel_tv.xml: filas de canales en XML para móvil y TV.
+- app/src/main/res/layout/item_channel.xml e item_channel_side.xml: filas de canales y lista lateral de TV.
 - app/src/main/res/layout/item_category.xml e item_category_tv.xml: medidas de chips en XML.
 - Selectores de estado en res/drawable y res/color: colores de selección de categorías definidos en XML.
 - app/src/main/res/drawable/: fondos, bordes, selectores de foco y estados de interacción.
