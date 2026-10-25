@@ -1415,7 +1415,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         # The current source dispatches TV remote actions through TvRemoteKeyController and
         # already owns these focus-navigation methods, so don't inject a second focus system.
         if (
-            "import com.angulismotv.player.PlayerRemoteKeyRouter\\n" in text
+            "import com.angulismotv.player.PlayerRemoteKeyRouter" in text
             and "playerControlsLayoutController.apply(resources.configuration.orientation)" in text
         ):
             text = replace_once(
@@ -1484,7 +1484,7 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             if focus_block_matches != 1 and "private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()" not in text:
                 raise RuntimeError("No se pudo extraer la navegación de foco de UnifiedPlayerActivity")
         elif (
-            "import com.angulismotv.player.TvRemoteKeyController\\n" in text
+            "import com.angulismotv.player.TvRemoteKeyController" in text
             and "private fun navigateControlsRight()" in text
         ):
             pass
