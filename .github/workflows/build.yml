@@ -58,9 +58,13 @@ jobs:
       - name: Preparar una sola raíz desde la copia más reciente
         run: |
           set -euo pipefail
-          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' -printf '%f\n' | sort | head -1)"
-          if [ -z "$ZIP" ]; then
-            echo "::error::No se encontró el ZIP fuente."
+          # Never select a source ZIP alphabetically: that silently built an older etapa56 snapshot.
+          # The latest verified user source is etapa58; fail closed until it is present in the branch.
+          ZIP="AngulismoTV-audio-diagnostico-etapa58.zip"
+          if [ ! -f "$ZIP" ]; then
+            echo "::error::Falta $ZIP. No se compilará una copia antigua por descarte; subí la ZIP etapa58 a la raíz de esta rama."
+            echo "ZIP disponibles en la raíz:"
+            find . -maxdepth 1 -type f -name '*.zip' -printf '%f (%s bytes)\n' | sort
             exit 1
           fi
           echo "Usando ZIP: $ZIP"
