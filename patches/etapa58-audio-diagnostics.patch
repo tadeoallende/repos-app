@@ -1,12 +1,27 @@
 --- a/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt
 +++ b/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt
-@@
+@@ -177,7 +177,7 @@
+     // RECONEXION
+     private var playerGeneration = 0
+     private var lastAudioError: String? = null
 -    private var lastAudioErrorHost: String? = null
 +    private var lastAudioErrorGeneration = -1
-@@
+     private var audioNoticeGeneration = -1
+     // Channels
+     private var allChannels: List<Channel> = emptyList()
+@@ -1523,7 +1523,7 @@
+             override fun onPlayerError(error: PlaybackException) {
+                 if (playerGeneration != generation || exoPlayer !== player || isZapping) return
+                 lastAudioError = PlayerAudioDiagnostics.logPlaybackError("fullscreen", type, url, error)
 -                lastAudioErrorHost = StreamUtils.hostForLog(url)
 +                lastAudioErrorGeneration = generation
-@@
+                 stableStreamRunnable?.let { mainHandler.removeCallbacks(it) }
+                 stableStreamRunnable = null
+                 recovery.stopWatchdog()
+@@ -1995,8 +1995,8 @@
+             type = currentStreamType,
+             url = currentStreamUrl,
+             summary = summary,
 -            // Se conserva entre reconexiones, pero solo se muestra si es del mismo servidor.
 -            lastError = lastAudioError.takeIf { lastAudioErrorHost == StreamUtils.hostForLog(currentStreamUrl) }
 +            // Conservar entre reconexiones de la misma sesión, nunca al cambiar de canal/fuente.
