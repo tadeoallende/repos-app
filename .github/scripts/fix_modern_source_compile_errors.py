@@ -13,6 +13,11 @@ def patch_file(relative_path: str, replacements: tuple[tuple[str, str, str], ...
     source = path.read_text(encoding="utf-8")
     changed = False
     for old, new, label in replacements:
+        # The audio-etapa58 patch already includes the ExoPlayer Tracks import. Check
+        # the complete replacement first so both paths remain idempotent and don't
+        # introduce duplicate Kotlin imports.
+        if new in source:
+            continue
         if old in source:
             if source.count(old) != 1:
                 raise SystemExit(
@@ -20,7 +25,7 @@ def patch_file(relative_path: str, replacements: tuple[tuple[str, str, str], ...
                 )
             source = source.replace(old, new, 1)
             changed = True
-        elif new not in source:
+        else:
             raise SystemExit(f"Modern source compile fix ({label}): source no longer matches known variants")
     if changed:
         path.write_text(source, encoding="utf-8", newline="\n")
