@@ -32,4 +32,19 @@
 +                PlayerAudioDiagnosticPolicy.describeState(PlayerAudioDiagnosticPolicy.TrackState.READY)
 +        )
 +    }
++
++    @Test fun audioReportNeverExposesSignedStreamUrl() {
++        val report = PlayerAudioDiagnostics.formatReport(
++            channelName = "Canal de prueba",
++            type = "hls",
++            url = "https://streams.example.test/live.m3u8?token=secret-value&sig=private-value",
++            summary = null,
++            lastError = "ERROR_CODE_DECODING_FAILED (DecoderInitializationException)"
++        )
++        assertTrue(report.contains("streams.example.test"))
++        assertFalse(report.contains("live.m3u8"))
++        assertFalse(report.contains("token"))
++        assertFalse(report.contains("secret-value"))
++        assertFalse(report.contains("private-value"))
++    }
  }
