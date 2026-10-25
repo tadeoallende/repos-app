@@ -1187,7 +1187,14 @@ def fix_tv_channel_number_initialization():
     if old not in s:
         if new in s:
             return
-        raise SystemExit("No se encontró la rama TV esperada en generateCategoriesFromChannels")
+        if (
+            "ChannelsFragmentViews" in s
+            and "channelNumber = { channel -> originalChannels.indexOfFirst" in s
+            and "ChannelIdentity.same(it, channel)" in s
+        ):
+            print("Skipping legacy channel-number initialization: current adapter derives numbering from the full catalogue.")
+            return
+        raise SystemExit("No se encontró una implementación reconocida de los números de canal en Android TV.")
     write(p, s.replace(old, new, 1))
 
 def main():
