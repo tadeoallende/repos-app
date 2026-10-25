@@ -489,24 +489,24 @@ def update_xml():
     # The clock was missing from newer shared headers even though TV setup and
     # regression tests require it. Add it idempotently before styling the header.
     main_xml = read(main)
-    if not re.search(r'<TextClock\\b(?=[^>]*android:id="@\\+id/header_clock")[^>]*>', main_xml):
-        search_button = re.search(r'(?m)^(?P<indent>\\s*)<ImageButton\\b(?=[^>]*android:id="@\\+id/header_search_button")[^>]*>', main_xml)
+    if not re.search(r'<TextClock\b(?=[^>]*android:id="@\+id/header_clock")[^>]*>', main_xml):
+        search_button = re.search(r'(?m)^(?P<indent>\s*)<ImageButton\b(?=[^>]*android:id="@\+id/header_search_button")[^>]*>', main_xml)
         if not search_button:
             raise SystemExit("Missing header_search_button insertion point for the TV clock")
         indent = search_button.group("indent")
         clock_view = (
-            f'{indent}<TextClock\\n'
-            f'{indent}    android:id="@+id/header_clock"\\n'
-            f'{indent}    android:layout_width="wrap_content"\\n'
-            f'{indent}    android:layout_height="wrap_content"\\n'
-            f'{indent}    android:layout_gravity="end|center_vertical"\\n'
-            f'{indent}    android:layout_marginEnd="@dimen/space_16dp"\\n'
-            f'{indent}    android:format12Hour="HH:mm"\\n'
-            f'{indent}    android:format24Hour="HH:mm"\\n'
-            f'{indent}    android:maxLines="1"\\n'
-            f'{indent}    android:visibility="gone"\\n'
-            f'{indent}    android:contentDescription="Hora actual"\\n'
-            f'{indent}    android:textAppearance="@style/TextAppearance.AngulismoTV.HeaderClock" />\\n'
+            f'{indent}<TextClock\n'
+            f'{indent}    android:id="@+id/header_clock"\n'
+            f'{indent}    android:layout_width="wrap_content"\n'
+            f'{indent}    android:layout_height="wrap_content"\n'
+            f'{indent}    android:layout_gravity="end|center_vertical"\n'
+            f'{indent}    android:layout_marginEnd="@dimen/space_16dp"\n'
+            f'{indent}    android:format12Hour="HH:mm"\n'
+            f'{indent}    android:format24Hour="HH:mm"\n'
+            f'{indent}    android:maxLines="1"\n'
+            f'{indent}    android:visibility="gone"\n'
+            f'{indent}    android:contentDescription="Hora actual"\n'
+            f'{indent}    android:textAppearance="@style/TextAppearance.AngulismoTV.HeaderClock" />\n'
         )
         main_xml = main_xml[:search_button.start()] + clock_view + main_xml[search_button.start():]
         write(main, main_xml)
