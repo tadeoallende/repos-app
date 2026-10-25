@@ -119,18 +119,22 @@ jobs:
           mkdir -p proyecto/compilacion
           unzip -q -o "$GITHUB_WORKSPACE/project-base.zip" -d proyecto/compilacion
           PROJECT_DIR="$GITHUB_WORKSPACE/proyecto/compilacion"
-          python3 .github/scripts/apply_ui_design_system.py "$PROJECT_DIR"
-          python3 .github/scripts/apply_tv_side_menu_modularization.py "$PROJECT_DIR"
-          python3 .github/scripts/test_tv_channel_number_initialization.py "$PROJECT_DIR"
-          python3 .github/scripts/test_tv_clock_visibility.py "$PROJECT_DIR"
-          python3 .github/scripts/test_tv_side_menu_and_player_reuse.py "$PROJECT_DIR"
-          python3 .github/scripts/test_xml_design_tokens.py "$PROJECT_DIR"
           if [ "$MODERN_SOURCE" != "true" ]; then
+            python3 .github/scripts/apply_ui_design_system.py "$PROJECT_DIR"
+            python3 .github/scripts/apply_tv_side_menu_modularization.py "$PROJECT_DIR"
+            python3 .github/scripts/test_tv_channel_number_initialization.py "$PROJECT_DIR"
+            python3 .github/scripts/test_tv_clock_visibility.py "$PROJECT_DIR"
+            python3 .github/scripts/test_tv_side_menu_and_player_reuse.py "$PROJECT_DIR"
+            python3 .github/scripts/test_xml_design_tokens.py "$PROJECT_DIR"
             python3 .github/scripts/apply_unified_player_cleanup.py "$PROJECT_DIR"
             python3 .github/scripts/test_player_quality.py "$PROJECT_DIR"
             python3 .github/scripts/test_unified_player_cleanup.py "$PROJECT_DIR"
           else
-            echo "Se omiten validadores legacy de PlayerControlsAnimator/delegados, no aplicables a esta versión de la Activity."
+            # These UI transforms expect the previous resource/controller layout generation
+            # (item_channel_tv.xml, ChannelCategoryBarController, old side-menu selector, etc.).
+            # Don't mutate the modern source using scripts that assume those files exist.
+            python3 .github/scripts/test_tv_channel_number_initialization.py "$PROJECT_DIR"
+            echo "Se conservan los layouts y controladores de la ZIP modular actual; se omiten normalizadores y tests UI de la generación anterior."
           fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
