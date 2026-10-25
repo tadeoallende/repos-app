@@ -157,7 +157,13 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
     except UnicodeDecodeError:
         return raw
 
-    if name == "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt":
+    if name == "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt" and not (
+        # Keep compatibility with older source ZIPs, but don't replay string patches
+        # over the newer modular ChannelsFragment architecture.
+        "ChannelCatalogFilterController" in text
+        and "InlineSourceResolver" in text
+        and "ChannelsFragmentViews" in text
+    ):
         for old, new, label in [
             ("import androidx.fragment.app.Fragment\n", "import androidx.fragment.app.Fragment\nimport androidx.lifecycle.lifecycleScope\n", "imports lifecycleScope"),
             ("import com.angulismotv.ui.DebouncedChannelSearchController\n", "import com.angulismotv.ui.DebouncedChannelSearchController\nimport kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.Job\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.withContext\n", "imports coroutines"),
@@ -575,6 +581,12 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
 
 """
         text = text[:hide_start] + new_hide + text[refresh_start:]
+
+    elif name == "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt":
+        # This ZIP already delegates filtering, source resolution, view lifecycle and
+        # category rendering to dedicated controllers. The legacy transformations
+        # above target removed fields/methods and must not be applied to this variant.
+        pass
 
     elif name == "app/src/main/java/com/angulismotv/adapters/ChannelsAdapter.kt":
         text = replace_once(text, "if (isTV && itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "if (itemCount > 0) notifyItemRangeChanged(0, itemCount, PAYLOAD_PREVIEW_STATE)", "notificar selección móvil")
