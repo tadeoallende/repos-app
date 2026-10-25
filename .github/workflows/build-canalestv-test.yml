@@ -234,7 +234,7 @@ jobs:
           cp "$APK" "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.apk"
           (cd "$GITHUB_WORKSPACE" && sha256sum CanalesTV-prueba-firmado.apk > CanalesTV-prueba-firmado.sha256)
           TAG="canalestv-test-${{ github.run_id }}"
-          gh release create "$TAG" \
+          gh release create "$TAG" --repo tadeoallende/repos-app \
             "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.apk" \
             "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.sha256" \
             --target "$GITHUB_SHA" \
