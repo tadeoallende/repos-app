@@ -2,7 +2,7 @@
   "version": 1,
   "fuentePrincipal": {
     "habilitada": true,
-    "nombre": "IPTV-org",
-    "url": "https://iptv-org.github.io/iptv/index.m3u"
+    "nombre": "Canales propios",
+    "url": "https://raw.githubusercontent.com/tadeoallende/repos-app/refs/heads/main/canales.json"
   }
 }
