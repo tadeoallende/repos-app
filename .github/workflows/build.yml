@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '*.zip'
+      - 'fuentes.json'
       - '.github/workflows/build.yml'
       - '.github/project-overrides/**'
       - '.github/scripts/apply_zip_overrides.py'
