@@ -1952,7 +1952,14 @@ def apply_ui_redesign(name: str, text: str) -> str:
                 if (openSearchOnStart) channelPanelController.activateSearchMode()
             }
         }"""
-        text = replace_once(text, old, new, "abrir panel o búsqueda según acceso de TV")
+        if old in text or new in text:
+            text = replace_once(text, old, new, "abrir panel o búsqueda según acceso de TV")
+        elif "TvSidePanelFocusController" in text and "channelPanelController" not in text:
+            # The updated Activity owns its TV side panel through a different controller;
+            # the legacy intent hook targets a removed ChannelPanelController.
+            pass
+        else:
+            raise RuntimeError("No se pudo adaptar el acceso de panel/búsqueda a la variante actual del reproductor.")
 
     elif name == "app/src/main/res/layout/activity_main.xml":
         import xml.etree.ElementTree as ET
