@@ -77,6 +77,19 @@ jobs:
           fi
           echo "Raíz seleccionada: $SOURCE_ROOT"
 
+          # The newest source ZIP is already modularized differently from the legacy
+          # string-rewrite pipeline. Detect it once and avoid applying incompatible refactors.
+          MODERN_SOURCE=false
+          CHANNELS_FRAGMENT="$SOURCE_ROOT/app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt"
+          PLAYER_ACTIVITY="$SOURCE_ROOT/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
+          if [ -f "$CHANNELS_FRAGMENT" ] && [ -f "$PLAYER_ACTIVITY" ] && \
+             grep -Fq 'private var viewRefs: ChannelsFragmentViews? = null' "$CHANNELS_FRAGMENT" && \
+             grep -Fq 'private fun showExoPlayer(url: String, type: String)' "$PLAYER_ACTIVITY"; then
+            MODERN_SOURCE=true
+          fi
+          echo "Arquitectura modular actual: $MODERN_SOURCE"
+          echo "MODERN_SOURCE=$MODERN_SOURCE" >> "$GITHUB_ENV"
+
           # Quitar un cierre residual que no pertenece a XML y rompe AAPT.
           TV_LAYOUT="$SOURCE_ROOT/app/src/main/res/layout/fragment_channels_tv.xml"
           if [ -f "$TV_LAYOUT" ]; then
@@ -89,24 +102,32 @@ jobs:
             -x './.gradle/*' './.idea/*' './build/*' './app/build/*' './local.properties' './*.zip')
 
           python3 .github/scripts/apply_zip_overrides.py "$GITHUB_WORKSPACE/project-base.zip"
-          python3 .github/scripts/apply_fullscreen_player_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
-          python3 .github/scripts/apply_fullscreen_surface_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
-          python3 .github/scripts/apply_playback_reload_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
-          python3 .github/scripts/apply_playback_lifecycle_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
-          python3 .github/scripts/apply_player_quality_improvements.py "$GITHUB_WORKSPACE/project-base.zip"
+          if [ "$MODERN_SOURCE" != "true" ]; then
+            python3 .github/scripts/apply_fullscreen_player_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
+            python3 .github/scripts/apply_fullscreen_surface_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
+            python3 .github/scripts/apply_playback_reload_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
+            python3 .github/scripts/apply_playback_lifecycle_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
+            python3 .github/scripts/apply_player_quality_improvements.py "$GITHUB_WORKSPACE/project-base.zip"
+          else
+            echo "Se omiten refactorizaciones legacy del reproductor: el ZIP ya usa la API modular actual."
+          fi
           python3 .github/scripts/test_zip_duplicate_entries.py "$GITHUB_WORKSPACE/project-base.zip"
           mkdir -p proyecto/compilacion
           unzip -q -o "$GITHUB_WORKSPACE/project-base.zip" -d proyecto/compilacion
           PROJECT_DIR="$GITHUB_WORKSPACE/proyecto/compilacion"
           python3 .github/scripts/apply_ui_design_system.py "$PROJECT_DIR"
           python3 .github/scripts/apply_tv_side_menu_modularization.py "$PROJECT_DIR"
-          python3 .github/scripts/apply_unified_player_cleanup.py "$PROJECT_DIR"
           python3 .github/scripts/test_tv_channel_number_initialization.py "$PROJECT_DIR"
           python3 .github/scripts/test_tv_clock_visibility.py "$PROJECT_DIR"
           python3 .github/scripts/test_tv_side_menu_and_player_reuse.py "$PROJECT_DIR"
           python3 .github/scripts/test_xml_design_tokens.py "$PROJECT_DIR"
-          python3 .github/scripts/test_player_quality.py "$PROJECT_DIR"
-          python3 .github/scripts/test_unified_player_cleanup.py "$PROJECT_DIR"
+          if [ "$MODERN_SOURCE" != "true" ]; then
+            python3 .github/scripts/apply_unified_player_cleanup.py "$PROJECT_DIR"
+            python3 .github/scripts/test_player_quality.py "$PROJECT_DIR"
+            python3 .github/scripts/test_unified_player_cleanup.py "$PROJECT_DIR"
+          else
+            echo "Se omiten validadores legacy de PlayerControlsAnimator/delegados, no aplicables a esta versión de la Activity."
+          fi
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
