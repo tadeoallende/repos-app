@@ -110,8 +110,11 @@ jobs:
                 exit 1
               fi
               echo "Aplicando $(basename "$PATCH_FILE")"
-              patch --batch --forward -p1 -d "$SOURCE_ROOT" < "$PATCH_FILE"
+              patch --batch --forward --no-backup-if-mismatch -p1 -d "$SOURCE_ROOT" < "$PATCH_FILE"
             done
+            # GNU patch may have produced backups on runners with different XML context.
+            # Resource directories must never contain *.orig files; AAPT treats them as assets.
+            find "$SOURCE_ROOT/app/src/main/res" -type f -name '*.orig' -delete
             grep -Fq 'lastAudioErrorGeneration' "$PLAYER_ACTIVITY"
             grep -Fq 'createRenderersFactory' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/StreamMediaSourceFactory.kt"
             test -s "$SOURCE_ROOT/app/src/main/res/drawable/ic_audio_info.xml"
