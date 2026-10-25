@@ -15,7 +15,18 @@ method = re.search(
     re.S,
 )
 if not method:
-    raise SystemExit("FAIL: generateCategoriesFromChannels could not be located")
+    # Current modular source derives the stable number from originalChannels when the
+    # adapter binds each row, rather than precomputing it in generateCategoriesFromChannels.
+    modern_binding = re.search(
+        r"channelNumber\\s*=\\s*\\{\\s*channel\\s*->\\s*originalChannels\\.indexOfFirst\\s*"
+        r"\\{\\s*ChannelIdentity\\.same\\(it,\\s*channel\\)\\s*\\}\\s*\\+\\s*1\\s*\\}",
+        source,
+        re.S,
+    )
+    if "ChannelsFragmentViews" in source and modern_binding:
+        print("PASS: Android TV channel numbers derive from the complete source catalogue at row binding")
+        raise SystemExit(0)
+    raise SystemExit("FAIL: no supported Android TV channel-number initialization path was found")
 
 tv_branch = re.search(r"if \(isTV\) \{(.*?)\n            return\n        \}", method.group(1), re.S)
 if not tv_branch:
