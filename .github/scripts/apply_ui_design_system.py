@@ -486,6 +486,30 @@ def update_xml():
         if p.name == "fragment_channels_tv.xml":
             style_view(p, "inline_btn_play_pause", "style", "Widget.AngulismoTV.InlinePlayerActionButton", ("android:background", "android:padding"))
     main = L / "activity_main.xml"
+    # The clock was missing from newer shared headers even though TV setup and
+    # regression tests require it. Add it idempotently before styling the header.
+    main_xml = read(main)
+    if not re.search(r'<TextClock\\b(?=[^>]*android:id="@\\+id/header_clock")[^>]*>', main_xml):
+        search_button = re.search(r'(?m)^(?P<indent>\\s*)<ImageButton\\b(?=[^>]*android:id="@\\+id/header_search_button")[^>]*>', main_xml)
+        if not search_button:
+            raise SystemExit("Missing header_search_button insertion point for the TV clock")
+        indent = search_button.group("indent")
+        clock_view = (
+            f'{indent}<TextClock\\n'
+            f'{indent}    android:id="@+id/header_clock"\\n'
+            f'{indent}    android:layout_width="wrap_content"\\n'
+            f'{indent}    android:layout_height="wrap_content"\\n'
+            f'{indent}    android:layout_gravity="end|center_vertical"\\n'
+            f'{indent}    android:layout_marginEnd="@dimen/space_16dp"\\n'
+            f'{indent}    android:format12Hour="HH:mm"\\n'
+            f'{indent}    android:format24Hour="HH:mm"\\n'
+            f'{indent}    android:maxLines="1"\\n'
+            f'{indent}    android:visibility="gone"\\n'
+            f'{indent}    android:contentDescription="Hora actual"\\n'
+            f'{indent}    android:textAppearance="@style/TextAppearance.AngulismoTV.HeaderClock" />\\n'
+        )
+        main_xml = main_xml[:search_button.start()] + clock_view + main_xml[search_button.start():]
+        write(main, main_xml)
     style_view(main, "header_search_button", "style", "Widget.AngulismoTV.HeaderIconButton", ("android:background", "android:padding"))
     s = read(main).replace('android:layout_width="44dp" android:layout_height="44dp"', 'android:layout_width="@dimen/header_search_button_size_mobile" android:layout_height="@dimen/header_search_button_size_mobile"')
     s = re.sub(r'(<TextClock\b(?=[^>]*android:id="@\+id/header_clock")[^>]*?)\s+android:textColor="[^"]*"\s+android:textSize="[^"]*"\s+android:fontFamily="[^"]*"', r'\1 android:textAppearance="@style/TextAppearance.AngulismoTV.HeaderClock"', s, count=1)
