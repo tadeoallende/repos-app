@@ -24,6 +24,32 @@ def write(p, s):
 
 def append_resources(path, marker, block):
     s = read(path)
+    if path.name == "dimens.xml":
+        # Source ZIPs can already contain some tokens without the aggregate marker.
+        # Add missing dimensions individually to avoid duplicate Android resource names.
+        existing_names = set(re.findall(r'<dimen\s+name="([^"]+)"', s))
+        candidates = re.findall(r'<dimen\s+name="([^"]+)"[^>]*>.*?</dimen>', block, re.S)
+        additions = []
+        for name in candidates:
+            if name in existing_names:
+                continue
+            match = re.search(
+                r'<dimen\s+name="' + re.escape(name) + r'"[^>]*>.*?</dimen>',
+                block,
+                re.S,
+            )
+            if match:
+                additions.append(match.group(0))
+                existing_names.add(name)
+        if additions:
+            marker_comment = "" if marker in s else f"    <!-- {marker} -->\n"
+            s = s.replace(
+                "</resources>",
+                "\n" + marker_comment + "    " + "\n    ".join(additions) + "\n</resources>",
+                1,
+            )
+            write(path, s)
+        return
     if marker not in s:
         s = s.replace("</resources>", "\n" + block + "\n</resources>")
         write(path, s)
@@ -190,7 +216,7 @@ def token_dimensions():
         '<dimen name="agenda_error_max_width">420dp</dimen>',
         '<dimen name="agenda_error_text_size">15sp</dimen>',
     )
-    missing_dimensions = [value for value in extra_dimensions if not re.search(r'<dimen\\s+name="' + re.escape(value.split('"')[1]) + r'">', s)]
+    missing_dimensions = [value for value in extra_dimensions if not re.search(r'<dimen\s+name="' + re.escape(value.split('"')[1]) + r'">', s)]
     if missing_dimensions:
         s = s.replace("</resources>", "\n    " + "\n    ".join(missing_dimensions) + "\n</resources>")
         write(p, s)
