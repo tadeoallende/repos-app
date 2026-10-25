@@ -330,7 +330,11 @@ def style_view(path, view_id, attr, style, remove=()):
             return
         raise SystemExit(f"Missing view {view_id} in {path}")
     tag = m.group(0)
-    if f'{attr}="@style/{style}"' not in tag:
+    # Replace an existing style/textAppearance instead of emitting duplicate XML attributes.
+    attr_pattern = re.compile(r'(?<![\w:])' + re.escape(attr) + r'="[^"]*"')
+    if attr_pattern.search(tag):
+        tag = attr_pattern.sub(f'{attr}="@style/{style}"', tag, count=1)
+    else:
         tag = re.sub(r'(<[\w.:]+\b)', r'\1 ' + attr + '="@style/' + style + '"', tag, count=1)
     for a in remove:
         tag = re.sub(r'\s+' + re.escape(a) + r'="[^"]*"', '', tag)
