@@ -1345,7 +1345,12 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         else:
             raise RuntimeError("No se pudo aplicar buscar por prefijos y fragmentos: variante de ChannelCatalog desconocida.")
 
-    elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
+    elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt" and not (
+        # This source version routes native playback through showExoPlayer/showWebView.
+        # The following migration targets the older createAndStartExoPlayer API.
+        "private fun showExoPlayer(url: String, type: String)" in text
+        and "private fun createAndStartExoPlayer" not in text
+    ):
         text = replace_once(text,
             "            currentChannelIndex = index\n            currentChannel = channel\n            loadChannelInfo(channel)\n",
             "            currentChannelIndex = index\n            currentChannel = channel\n            getSharedPreferences(\"angulismotv_playback\", MODE_PRIVATE).edit()\n                .putString(\"last_channel_key\", ChannelIdentity.key(channel))\n                .putString(\"last_channel_name\", channel.name)\n                .putString(\"last_channel_logo\", channel.logo)\n                .apply()\n            loadChannelInfo(currentChannel!!)\n",
@@ -1490,6 +1495,10 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             pass
         else:
             raise RuntimeError("No se reconoce la variante de navegación de foco de UnifiedPlayerActivity.")
+
+    elif name == "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt":
+        # Current source already uses a different playback orchestration API; leave it intact.
+        pass
 
     elif name == "app/src/main/java/com/angulismotv/MainActivity.kt":
         text = replace_once(text,
