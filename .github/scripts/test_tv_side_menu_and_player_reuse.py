@@ -37,19 +37,51 @@ if not focused or '#182538' not in focused.group(1):
     raise SystemExit("FAIL: TV D-pad focus affordance must remain visible")
 
 fragment = (root / "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt").read_text(encoding="utf-8")
-transfer = (root / "app/src/main/java/com/angulismotv/player/InlinePlayerTransferController.kt").read_text(encoding="utf-8")
-fullscreen = (root / "app/src/main/java/com/angulismotv/player/FullscreenNativePlaybackController.kt").read_text(encoding="utf-8")
-handoff = (root / "app/src/main/java/com/angulismotv/player/InlinePlayerHandoff.kt").read_text(encoding="utf-8")
+handoff_path = root / "app/src/main/java/com/angulismotv/player/InlinePlayerHandoff.kt"
+if not handoff_path.exists():
+    raise SystemExit("FAIL: missing InlinePlayerHandoff session owner")
+handoff = handoff_path.read_text(encoding="utf-8")
+
 if "private fun prepareInlineHandoff(" in fragment or "private data class InlineHandoffPlan" in fragment:
     raise SystemExit("FAIL: obsolete duplicate handoff implementation remains in ChannelsFragment")
-if "inlinePlayerTransferController?.prepare(channel, fromInline)" not in fragment:
-    raise SystemExit("FAIL: inline launch must use InlinePlayerTransferController")
-if "offerNativePlayerToFullscreen(channel, player, streamUrl, streamType)" not in transfer:
-    raise SystemExit("FAIL: transfer controller must offer the existing native player")
-if "playerView.player = player" not in fullscreen or "// Do not replace media or call prepare()" not in fullscreen:
-    raise SystemExit("FAIL: fullscreen reuse must attach existing player without preparing a duplicate")
-if "val player: ExoPlayer?" not in handoff or "player = player" not in transfer:
-    raise SystemExit("FAIL: handoff must preserve the existing player instance")
+
+transfer_path = root / "app/src/main/java/com/angulismotv/player/InlinePlayerTransferController.kt"
+fullscreen_path = root / "app/src/main/java/com/angulismotv/player/FullscreenNativePlaybackController.kt"
+if transfer_path.exists() and fullscreen_path.exists():
+    # Later refactored architecture: a dedicated controller mediates the transfer.
+    transfer = transfer_path.read_text(encoding="utf-8")
+    fullscreen = fullscreen_path.read_text(encoding="utf-8")
+    if "inlinePlayerTransferController?.prepare(channel, fromInline)" not in fragment:
+        raise SystemExit("FAIL: inline launch must use InlinePlayerTransferController")
+    if "offerNativePlayerToFullscreen(channel, player, streamUrl, streamType)" not in transfer:
+        raise SystemExit("FAIL: transfer controller must offer the existing native player")
+    if "playerView.player = player" not in fullscreen or "// Do not replace media or call prepare()" not in fullscreen:
+        raise SystemExit("FAIL: fullscreen reuse must attach existing player without preparing a duplicate")
+    if "val player: ExoPlayer?" not in handoff or "player = player" not in transfer:
+        raise SystemExit("FAIL: handoff must preserve the existing player instance")
+else:
+    # Current architecture: the Fragment detaches the active engine into an atomic Session;
+    # the fullscreen Activity claims that exact instance only for the matching stream.
+    fullscreen_path = root / "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
+    fullscreen = fullscreen_path.read_text(encoding="utf-8")
+    required_fragment = (
+        "inlinePlaybackEngine.detachForHandoff()",
+        "InlinePlayerHandoff.offerToFullscreen(session)",
+        'putExtra("reuse_inline_player_session", canTransferNativePlayer)',
+    )
+    if any(fragment_piece not in fragment for fragment_piece in required_fragment):
+        raise SystemExit("FAIL: current inline player does not safely offer its live native session")
+    required_fullscreen = (
+        'InlinePlayerHandoff.takeForFullscreen(url, type)',
+        "playerView.player = player",
+        "Do not set a MediaSource or call prepare()",
+        "exoPlayer = null // hand the engine back; releasePlayer() must not release it.",
+        "InlinePlayerHandoff.returnToInline(",
+    )
+    if any(piece not in fullscreen for piece in required_fullscreen):
+        raise SystemExit("FAIL: current fullscreen player must reuse/return the same native session")
+    if "val player: ExoPlayer?" not in handoff or "fun takeForFullscreen(streamUrl: String, streamType: String)" not in handoff:
+        raise SystemExit("FAIL: InlinePlayerHandoff must own and validate the transferred player instance")
 
 print("PASS: TV side menu is modular XML with icon-only selection and focus feedback")
 print("PASS: mini/fullscreen path uses one existing native player; duplicate legacy path removed")
