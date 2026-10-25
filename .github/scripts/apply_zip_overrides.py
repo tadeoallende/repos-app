@@ -1677,6 +1677,15 @@ def apply_ui_redesign(name: str, text: str) -> str:
         text = replace_once(text, old, new, "ocultar búsqueda de cabecera en TV")
 
     elif name == "app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt":
+        # The modular project binds TV actions/focus in dedicated renderers/controllers.
+        # These string replacements belong only to the earlier monolithic fragment.
+        if (
+            "ChannelsFragmentViews" in text
+            and "TvPlayerPreviewRenderer" in text
+            and "ChannelCatalogFilterController" in text
+        ):
+            return text
+
         old_click = """        if (isTV) {
             view?.findViewById<View>(R.id.tv_inline_search_button)?.setOnClickListener {
                 toggleSearchFromHeader()
