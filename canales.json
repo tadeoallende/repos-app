@@ -1004,8 +1004,16 @@
           "drmKey": null
         },
         {
-          "name": "Reproductor 2 (WebView)",
-          "iframe": "https://bantel-cdn1.iptvperu.tv:1936/btnscrtn/espn_premium.stream/playlist.m3u8",
+          "name": "Reproductor 2",
+          "iframe": "https://gatonet.site/api/proxy?url=https://teveplay.net/api/stream/0ae5c5de003787a8/index.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        },
+                {
+          "name": "Reproductor 3 (WebView)",
+          "iframe": "https://streamxhd.sbs/live1.php?stream=espnpremium",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
@@ -1027,14 +1035,22 @@
       "options": [
         {
           "name": "Reproductor 1",
-          "iframe": "http://190.128.214.97:64333/play/a03c/index.m3u8",
+          "iframe": "https://gatonet.site/api/proxy?url=https://teveplay.net/api/stream/0ae5c5de003787a8/index.m3u8",
           "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
         },
         {
-          "name": "Reproductor 2 (WebView, probablemente necesites un mouse)",
+          "name": "Reproductor 2 ",
+          "iframe": "http://190.128.214.97:64333/play/a03c/index.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        },
+                {
+          "name": "Reproductor 3 (WebView, probablemente necesites un mouse)",
           "iframe": "https://tvf90.com/5.php?stream=tntsports",
           "streamType": "iframe",
           "headers": null,
