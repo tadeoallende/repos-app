@@ -8,7 +8,7 @@ on:
       - chatgpt/prueba-acceso-2026-10-21-3
     paths:
       - ".github/workflows/build-clean-signed.yml"
-      - "AngulismoTV-limpio (1).zip"
+      - "AngulismoTV-ui-estandarizado.zip"
   workflow_dispatch:
 
 permissions:
@@ -39,10 +39,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="AngulismoTV-limpio (1).zip"
-          EXPECTED_SHA256="cd9a2b0a06b15076cf7b5d6212e2ad718832a4c84d759b792e05524af5d38892"
+          ZIP="AngulismoTV-ui-estandarizado.zip"
+          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
           test -s "$ZIP"
-          echo "$EXPECTED_SHA256  $ZIP" | sha256sum --check -
+          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
+          if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
+            echo "::error::El ZIP no coincide con el archivo verificado en la rama."
+            echo "Esperado Git blob: $EXPECTED_GIT_BLOB_SHA"
+            echo "Encontrado Git blob: $ACTUAL_GIT_BLOB_SHA"
+            exit 1
+          fi
+          ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
+          echo "SHA-256 del ZIP fuente: $ZIP_SHA256"
           unzip -t "$ZIP" | tail -n 2
           PROJECT_DIR="$RUNNER_TEMP/angulismotv-clean-source"
           mkdir -p "$PROJECT_DIR"
@@ -51,7 +59,7 @@ jobs:
           test -s "$PROJECT_DIR/app/build.gradle.kts"
           test -x "$PROJECT_DIR/gradlew" || chmod +x "$PROJECT_DIR/gradlew"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "ZIP_SHA256=$EXPECTED_SHA256" >> "$GITHUB_ENV"
+          echo "ZIP_SHA256=$ZIP_SHA256" >> "$GITHUB_ENV"
           echo "Se compilará únicamente el ZIP limpio verificado; no se aplican parches."
 
       - name: Preparar Java 17
@@ -132,7 +140,7 @@ jobs:
             "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.sha256" \
             --target "$GITHUB_SHA" \
             --title "AngulismoTV APK Release firmado (ZIP limpio)" \
-            --notes "Compilación Release desde AngulismoTV-limpio (1).zip. SHA-256 del ZIP fuente: $ZIP_SHA256. Sin aplicación de parches. Firma Android verificada con apksigner. Commit: $GITHUB_SHA." \
+            --notes "Compilación Release desde AngulismoTV-ui-estandarizado.zip. SHA-256 del ZIP fuente: $ZIP_SHA256. Sin aplicación de parches. Firma Android verificada con apksigner. Commit: $GITHUB_SHA." \
             --prerelease
           APK_URL="https://github.com/tadeoallende/repos-app/releases/download/$TAG/AngulismoTV-release-firmado.apk"
           echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
