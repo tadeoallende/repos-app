@@ -58,11 +58,16 @@ jobs:
       - name: Preparar una sola raíz desde la copia más reciente
         run: |
           set -euo pipefail
-          # Never select a source ZIP alphabetically: that silently built an older etapa56 snapshot.
-          # The latest verified user source is etapa58; fail closed until it is present in the branch.
-          ZIP="AngulismoTV-audio-diagnostico-etapa58.zip"
-          if [ ! -f "$ZIP" ]; then
-            echo "::error::Falta $ZIP. No se compilará una copia antigua por descarte; subí la ZIP etapa58 a la raíz de esta rama."
+          # Prefer the explicitly versioned audio-diagnostic source when it has been committed.
+          # Until then, use only the allowlisted source ZIP that passed build + Android/API 30,
+          # API 34 and Android TV smoke tests in build 258. Never pick a ZIP alphabetically.
+          if [ -f "AngulismoTV-audio-diagnostico-etapa58.zip" ]; then
+            ZIP="AngulismoTV-audio-diagnostico-etapa58.zip"
+          elif [ -f "AngulismoTV-limpio (1) (3).zip" ]; then
+            ZIP="AngulismoTV-limpio (1) (3).zip"
+            echo "::warning::No está la ZIP etapa58; se usará la fuente modular allowlisted que ya superó build y pruebas de emulador (build 258)."
+          else
+            echo "::error::No se encontró una fuente conocida y validada para compilar."
             echo "ZIP disponibles en la raíz:"
             find . -maxdepth 1 -type f -name '*.zip' -printf '%f (%s bytes)\n' | sort
             exit 1
