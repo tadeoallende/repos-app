@@ -224,8 +224,8 @@ def token_dimensions():
 
 def component_styles():
     p = V / "styles.xml"
-    if not p.exists() or "Widget.AngulismoTV.PlayerActionButton" not in read(p):
-        s = """<?xml version="1.0" encoding="utf-8"?>
+    s = read(p) if p.exists() else '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>\n'
+    generated_styles = """<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="TextAppearance.AngulismoTV.Body" parent="TextAppearance.MaterialComponents.Body1">
         <item name="android:fontFamily">sans-serif</item><item name="android:textSize">@dimen/text_size_body</item><item name="android:textColor">@color/text_primary</item>
@@ -276,6 +276,17 @@ def component_styles():
     </style>
 </resources>
 """
+    existing_style_names = set(re.findall(r'<style\s+name="([^"]+)"', s))
+    missing_styles = []
+    for style_xml in re.findall(r'<style\b[^>]*>.*?</style>', generated_styles, re.S):
+        style_name = re.search(r'<style\s+name="([^"]+)"', style_xml)
+        if style_name and style_name.group(1) not in existing_style_names:
+            missing_styles.append(style_xml)
+            existing_style_names.add(style_name.group(1))
+    if missing_styles:
+        if "</resources>" not in s:
+            raise SystemExit("Malformed styles.xml: missing </resources>")
+        s = s.replace("</resources>", "\n" + "\n".join(missing_styles) + "\n</resources>", 1)
         write(p, s)
 
     # Keep existing public TextAppearance names and move their sizes to shared tokens.
