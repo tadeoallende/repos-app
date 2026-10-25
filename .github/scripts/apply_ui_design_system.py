@@ -940,6 +940,13 @@ def update_kotlin():
 
     write(p, s)
 
+    # The remaining Kotlin rewrites are specifically for the older controller-based
+    # architecture. Newer ZIPs keep these responsibilities in other classes, so applying
+    # those transformations would create files or edit code that is no longer present.
+    if not (U / "ChannelCategoryBarController.kt").is_file():
+        print("Skipping legacy Kotlin UI rewrites: ChannelCategoryBarController.kt is absent in this source version.")
+        return
+
     p = U / "ChannelCategoryBarController.kt"
     s = read(p)
     if "import android.util.TypedValue" not in s:
