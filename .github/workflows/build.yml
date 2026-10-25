@@ -102,9 +102,10 @@ jobs:
               if item not in lines:
                   insert_at = next((i + 1 for i, line in enumerate(lines) if line.startswith("package ")), 0)
                   lines.insert(insert_at, item)
-          p.write_text("\\n".join(lines) + "\\n")
+          p.write_text("\n".join(lines) + "\n")
           PY
-          find "$SOURCE_ROOT" -type f \\( -name '*.orig' -o -name '*.rej' \\) -delete
+          find "$SOURCE_ROOT" -type f -name '*.orig' -delete
+          find "$SOURCE_ROOT" -type f -name '*.rej' -delete
           grep -Fq 'audioNoticeShown' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt"
           grep -Fq 'notifyUnsupportedAudio(summary)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt"
           grep -Fq 'shouldNotifyUser' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/PlayerAudioDiagnosticPolicy.kt"
