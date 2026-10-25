@@ -1411,72 +1411,86 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             "ocultar controles"
         )
 
-        # La navegación lineal del foco de los controles se delega a un controlador propio.
-        text = replace_once(
-            text,
-            "import com.angulismotv.player.PlayerRemoteKeyRouter\n",
-            "import com.angulismotv.player.PlayerRemoteKeyRouter\nimport com.angulismotv.player.PlayerControlFocusController\n",
-            "importar controlador de foco del reproductor"
-        )
-        text = replace_once(
-            text,
-            "    private var controlsVisible = false\n",
-            "    private var controlsVisible = false\n"
-            "    private lateinit var playerControlFocusController: PlayerControlFocusController\n",
-            "declarar controlador de foco"
-        )
-        focus_controller_setup = """        playerControlFocusController = PlayerControlFocusController(
-            isTv = { isTV },
-            controlsVisible = { controlsVisible },
-            isPanelOpen = { isPanelOpen },
-            lastFocusedControlId = { lastFocusedControlId },
-            playerContainer = playerContainer,
-            controlsProvider = {
-                listOf(
-                    btnRewind,
-                    btnPlayPause,
-                    btnForward,
-                    btnMenu,
-                    mediaRouteButton,
-                    btnOptions,
-                    btnReloadStream,
-                    btnClose
-                )
-            },
-            resetAutoHideTimer = ::resetAutoHideTimer
-        )
-"""
-        text = replace_once(
-            text,
-            "        playerControlsLayoutController.apply(resources.configuration.orientation)\n",
-            "        playerControlsLayoutController.apply(resources.configuration.orientation)\n" + focus_controller_setup,
-            "configurar controlador de foco"
-        )
+        # The legacy router/controller pair is only valid for the earlier Activity variant.
+        # The current source dispatches TV remote actions through TvRemoteKeyController and
+        # already owns these focus-navigation methods, so don't inject a second focus system.
+        if (
+            "import com.angulismotv.player.PlayerRemoteKeyRouter\\n" in text
+            and "playerControlsLayoutController.apply(resources.configuration.orientation)" in text
+        ):
+            text = replace_once(
+                text,
+                "import com.angulismotv.player.PlayerRemoteKeyRouter\n",
+                "import com.angulismotv.player.PlayerRemoteKeyRouter\nimport com.angulismotv.player.PlayerControlFocusController\n",
+                "importar controlador de foco del reproductor"
+            )
+            text = replace_once(
+                text,
+                "    private var controlsVisible = false\n",
+                "    private var controlsVisible = false\n"
+                "    private lateinit var playerControlFocusController: PlayerControlFocusController\n",
+                "declarar controlador de foco"
+            )
+            focus_controller_setup = """        playerControlFocusController = PlayerControlFocusController(
+                isTv = { isTV },
+                controlsVisible = { controlsVisible },
+                isPanelOpen = { isPanelOpen },
+                lastFocusedControlId = { lastFocusedControlId },
+                playerContainer = playerContainer,
+                controlsProvider = {
+                    listOf(
+                        btnRewind,
+                        btnPlayPause,
+                        btnForward,
+                        btnMenu,
+                        mediaRouteButton,
+                        btnOptions,
+                        btnReloadStream,
+                        btnClose
+                    )
+                },
+                resetAutoHideTimer = ::resetAutoHideTimer
+            )
+    """
+            text = replace_once(
+                text,
+                "        playerControlsLayoutController.apply(resources.configuration.orientation)\n",
+                "        playerControlsLayoutController.apply(resources.configuration.orientation)\n" + focus_controller_setup,
+                "configurar controlador de foco"
+            )
+    
+            focus_block_pattern = re.compile(
+                r"    /\*\*\n     \* Orden real de izquierda a derecha según activity_unified_player\.xml\..*?    private fun navigateControlsDown\(\) = navigateControlsRight\(\)\n",
+                re.S
+            )
+            focus_block_replacement = """    private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()
+    
+        private fun updateControlFocusOrder() = playerControlFocusController.updateControlFocusOrder()
+    
+        private fun requestPreferredControlFocus() = playerControlFocusController.requestPreferredControlFocus()
+    
+        private fun navigateControlsRight() = playerControlFocusController.navigateRight()
+    
+        private fun navigateControlsLeft() = playerControlFocusController.navigateLeft()
+    
+        private fun navigateControlsUp() = navigateControlsLeft()
+        private fun navigateControlsDown() = navigateControlsRight()
+    """
+            text, focus_block_matches = focus_block_pattern.subn(
+                focus_block_replacement,
+                text,
+                count=1
+            )
+            if focus_block_matches != 1 and "private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()" not in text:
+                raise RuntimeError("No se pudo extraer la navegación de foco de UnifiedPlayerActivity")
+        elif (
+            "import com.angulismotv.player.TvRemoteKeyController\\n" in text
+            and "private fun navigateControlsRight()" in text
+        ):
+            pass
+        else:
+            raise RuntimeError("No se reconoce la variante de navegación de foco de UnifiedPlayerActivity.")
 
-        focus_block_pattern = re.compile(
-            r"    /\*\*\n     \* Orden real de izquierda a derecha según activity_unified_player\.xml\..*?    private fun navigateControlsDown\(\) = navigateControlsRight\(\)\n",
-            re.S
-        )
-        focus_block_replacement = """    private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()
-
-    private fun updateControlFocusOrder() = playerControlFocusController.updateControlFocusOrder()
-
-    private fun requestPreferredControlFocus() = playerControlFocusController.requestPreferredControlFocus()
-
-    private fun navigateControlsRight() = playerControlFocusController.navigateRight()
-
-    private fun navigateControlsLeft() = playerControlFocusController.navigateLeft()
-
-    private fun navigateControlsUp() = navigateControlsLeft()
-    private fun navigateControlsDown() = navigateControlsRight()
-"""
-        text, focus_block_matches = focus_block_pattern.subn(
-            focus_block_replacement,
-            text,
-            count=1
-        )
-        if focus_block_matches != 1 and "private fun visibleControls(): List<View> = playerControlFocusController.visibleControls()" not in text:
-            raise RuntimeError("No se pudo extraer la navegación de foco de UnifiedPlayerActivity")
     elif name == "app/src/main/java/com/angulismotv/MainActivity.kt":
         text = replace_once(text,
             "    private fun loadAllChannels() {\n        val generation = ++channelLoadGeneration\n        channelLoadJob?.cancel()\n",
