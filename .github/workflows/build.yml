@@ -68,7 +68,7 @@ jobs:
           # El archivo cargado contiene una copia antigua y otra más reciente anidada.
           SOURCE_ROOT="proyecto/original/AngulismoTV-limpio (1) (2)"
           if [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
-            SOURCE_ROOT="$(find proyecto/original -mindepth 2 -name settings.gradle.kts -printf '%h\n' | sort | tail -1)"
+            SOURCE_ROOT="$(find proyecto/original -mindepth 1 -name settings.gradle.kts -printf '%h\n' | sort | tail -1)"
           fi
           if [ -z "$SOURCE_ROOT" ] || [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
             echo "::error::No se encontró la raíz Android de la copia más reciente."
