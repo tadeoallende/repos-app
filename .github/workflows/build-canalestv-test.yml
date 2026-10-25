@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: canalestv-test-${ github.ref }
+  group: canalestv-test-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -22,10 +22,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     env:
-      ANDROID_RELEASE_KEYSTORE_BASE64: ${ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }
-      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${ secrets.ANDROID_RELEASE_STORE_PASSWORD }
-      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${ secrets.ANDROID_RELEASE_KEY_ALIAS }
-      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${ secrets.ANDROID_RELEASE_KEY_PASSWORD }
+      ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
 
     steps:
       - name: Checkout de la variante de prueba
@@ -216,14 +216,14 @@ jobs:
           echo "ORG_GRADLE_PROJECT_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Compilar APK Release firmado
-        working-directory: ${ env.PROJECT_DIR }
+        working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: ./gradlew --no-daemon clean assembleRelease --stacktrace
 
       - name: Verificar firma y publicar APK de prueba
         env:
-          GH_TOKEN: ${ github.token }
-        working-directory: ${ env.PROJECT_DIR }
+          GH_TOKEN: ${{ github.token }}
+        working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
           set -euo pipefail
@@ -233,7 +233,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           cp "$APK" "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.apk"
           (cd "$GITHUB_WORKSPACE" && sha256sum CanalesTV-prueba-firmado.apk > CanalesTV-prueba-firmado.sha256)
-          TAG="canalestv-test-${ github.run_id }"
+          TAG="canalestv-test-${{ github.run_id }}"
           gh release create "$TAG" \
             "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.apk" \
             "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.sha256" \
