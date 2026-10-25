@@ -8,6 +8,7 @@ on:
       - '.github/project-overrides/**'
       - '.github/scripts/apply_zip_overrides.py'
       - '.github/scripts/apply_ui_design_system.py'
+      - '.github/scripts/fix_modern_source_compile_errors.py'
       - '.github/scripts/apply_fullscreen_player_modularization.py'
       - '.github/scripts/apply_fullscreen_surface_modularization.py'
       - '.github/scripts/apply_playback_reload_modularization.py'
@@ -90,6 +91,10 @@ jobs:
           fi
           echo "Arquitectura modular actual: $MODERN_SOURCE"
           echo "MODERN_SOURCE=$MODERN_SOURCE" >> "$GITHUB_ENV"
+
+          if [ "$MODERN_SOURCE" = "true" ]; then
+            python3 .github/scripts/fix_modern_source_compile_errors.py "$SOURCE_ROOT"
+          fi
 
           # Quitar un cierre residual que no pertenece a XML y rompe AAPT.
           TV_LAYOUT="$SOURCE_ROOT/app/src/main/res/layout/fragment_channels_tv.xml"
