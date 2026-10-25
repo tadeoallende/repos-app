@@ -47,8 +47,16 @@ if "private fun prepareInlineHandoff(" in fragment or "private data class Inline
 
 transfer_path = root / "app/src/main/java/com/angulismotv/player/InlinePlayerTransferController.kt"
 fullscreen_path = root / "app/src/main/java/com/angulismotv/player/FullscreenNativePlaybackController.kt"
-if transfer_path.exists() and fullscreen_path.exists():
-    # Later refactored architecture: a dedicated controller mediates the transfer.
+activity_path = root / "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
+activity_source = activity_path.read_text(encoding="utf-8")
+if (
+    transfer_path.exists()
+    and fullscreen_path.exists()
+    and "inlinePlayerTransferController?.prepare(channel, fromInline)" in fragment
+    and "fullscreenNativePlaybackController" in activity_source
+):
+    # Later refactored architecture: both dedicated controllers must actually be wired
+    # into the Activity/Fragment. Overlay files alone do not mean a project uses them.
     transfer = transfer_path.read_text(encoding="utf-8")
     fullscreen = fullscreen_path.read_text(encoding="utf-8")
     if "inlinePlayerTransferController?.prepare(channel, fromInline)" not in fragment:
@@ -62,8 +70,7 @@ if transfer_path.exists() and fullscreen_path.exists():
 else:
     # Current architecture: the Fragment detaches the active engine into an atomic Session;
     # the fullscreen Activity claims that exact instance only for the matching stream.
-    fullscreen_path = root / "app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
-    fullscreen = fullscreen_path.read_text(encoding="utf-8")
+    fullscreen = activity_source
     required_fragment = (
         "inlinePlaybackEngine.detachForHandoff()",
         "InlinePlayerHandoff.offerToFullscreen(session)",
