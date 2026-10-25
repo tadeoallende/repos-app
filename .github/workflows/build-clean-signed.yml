@@ -15,7 +15,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: clean-signed-release-${ github.ref }
+  group: clean-signed-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -24,10 +24,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     env:
-      ANDROID_RELEASE_KEYSTORE_BASE64: ${ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }
-      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${ secrets.ANDROID_RELEASE_STORE_PASSWORD }
-      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${ secrets.ANDROID_RELEASE_KEY_ALIAS }
-      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${ secrets.ANDROID_RELEASE_KEY_PASSWORD }
+      ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
 
     steps:
       - name: Checkout de la rama de prueba
@@ -74,8 +74,6 @@ jobs:
 
       - name: Preparar Gradle
         uses: gradle/actions/setup-gradle@v4
-        with:
-          build-root-directory: ${ env.PROJECT_DIR }
 
       - name: Preparar y validar la clave de firma Android
         id: signing
@@ -100,7 +98,7 @@ jobs:
           echo "Firma Android preparada y alias validado; no se imprimen credenciales."
 
       - name: Compilar Release firmado
-        working-directory: ${ env.PROJECT_DIR }
+        working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
           set -euo pipefail
@@ -108,7 +106,7 @@ jobs:
 
       - name: Verificar firma del APK
         id: verify
-        working-directory: ${ env.PROJECT_DIR }
+        working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
           set -euo pipefail
@@ -124,11 +122,11 @@ jobs:
       - name: Publicar APK Release firmado con enlace directo
         id: publish
         env:
-          GH_TOKEN: ${ github.token }
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          TAG="angulismotv-signed-clean-${ github.run_id }"
+          TAG="angulismotv-signed-clean-${{ github.run_id }}"
           gh release create "$TAG" \
             "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" \
             "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.sha256" \
