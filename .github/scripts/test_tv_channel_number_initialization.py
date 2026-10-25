@@ -17,11 +17,9 @@ method = re.search(
 if not method:
     # Current modular source derives the stable number from originalChannels when the
     # adapter binds each row, rather than precomputing it in generateCategoriesFromChannels.
-    modern_binding = re.search(
-        r"channelNumber\\s*=\\s*\\{\\s*channel\\s*->\\s*originalChannels\\.indexOfFirst\\s*"
-        r"\\{\\s*ChannelIdentity\\.same\\(it,\\s*channel\\)\\s*\\}\\s*\\+\\s*1\\s*\\}",
-        source,
-        re.S,
+    modern_binding = (
+        "channelNumber = { channel ->" in source
+        and "originalChannels.indexOfFirst { ChannelIdentity.same(it, channel) } + 1" in source
     )
     if "ChannelsFragmentViews" in source and modern_binding:
         print("PASS: Android TV channel numbers derive from the complete source catalogue at row binding")
