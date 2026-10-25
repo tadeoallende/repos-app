@@ -1,0 +1,34 @@
+name: Inspeccionar base Canalestv de prueba
+
+on:
+  push:
+    branches:
+      - chatgpt/canalestv-test-2026-10-25
+    paths:
+      - ".github/workflows/canalestv-inspect.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspeccionar ZIP de origen
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="AngulismoTV-ui-estandarizado.zip"
+          test -s "$ZIP"
+          test "$(git hash-object "$ZIP")" = "445984424a5a1057fc308aff5622987965a35900"
+          mkdir -p "$RUNNER_TEMP/source"
+          unzip -q "$ZIP" -d "$RUNNER_TEMP/source"
+          {
+            echo "## Estructura del proyecto"
+            find "$RUNNER_TEMP/source" -maxdepth 5 -type f | sed "s#^$RUNNER_TEMP/source/##" | sort | head -n 500
+            echo
+            echo "## Manifest, recursos y referencias de agenda/marca"
+            find "$RUNNER_TEMP/source" -type f \( -name 'AndroidManifest.xml' -o -name 'strings.xml' -o -name '*.kt' -o -name '*.java' -o -path '*/res/menu/*' -o -name '*.xml' \) \
+              -not -path '*/build/*' -print0 | xargs -0 grep -inE 'agenda|angulismo.?tv|app_name|ic_launcher|Canales' 2>/dev/null | head -n 500 || true
+          } >> "$GITHUB_STEP_SUMMARY"
