@@ -90,6 +90,19 @@ jobs:
           fi
           echo "Raíz seleccionada: $SOURCE_ROOT"
 
+          # The newest source ZIP is already modularized differently from the legacy
+          # string-rewrite pipeline. Detect it once and avoid applying incompatible refactors.
+          MODERN_SOURCE=false
+          CHANNELS_FRAGMENT="$SOURCE_ROOT/app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt"
+          PLAYER_ACTIVITY="$SOURCE_ROOT/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
+          if [ -f "$CHANNELS_FRAGMENT" ] && [ -f "$PLAYER_ACTIVITY" ] && \
+             grep -Fq 'private var viewRefs: ChannelsFragmentViews? = null' "$CHANNELS_FRAGMENT" && \
+             grep -Fq 'private fun showExoPlayer(url: String, type: String)' "$PLAYER_ACTIVITY"; then
+            MODERN_SOURCE=true
+          fi
+          echo "Arquitectura modular actual: $MODERN_SOURCE"
+          echo "MODERN_SOURCE=$MODERN_SOURCE" >> "$GITHUB_ENV"
+
           if [ "$MODERN_SOURCE" = "true" ] && [ "$APPLY_AUDIO_ETAPA58_PATCH" = "true" ]; then
             for PATCH_FILE in .github/patches/audio-etapa58-0*.patch; do
               if [ ! -f "$PATCH_FILE" ]; then
@@ -103,19 +116,6 @@ jobs:
             grep -Fq 'createRenderersFactory' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/StreamMediaSourceFactory.kt"
             test -s "$SOURCE_ROOT/app/src/main/res/drawable/ic_audio_info.xml"
           fi
-
-          # The newest source ZIP is already modularized differently from the legacy
-          # string-rewrite pipeline. Detect it once and avoid applying incompatible refactors.
-          MODERN_SOURCE=false
-          CHANNELS_FRAGMENT="$SOURCE_ROOT/app/src/main/java/com/angulismotv/fragments/ChannelsFragment.kt"
-          PLAYER_ACTIVITY="$SOURCE_ROOT/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
-          if [ -f "$CHANNELS_FRAGMENT" ] && [ -f "$PLAYER_ACTIVITY" ] && \
-             grep -Fq 'private var viewRefs: ChannelsFragmentViews? = null' "$CHANNELS_FRAGMENT" && \
-             grep -Fq 'private fun showExoPlayer(url: String, type: String)' "$PLAYER_ACTIVITY"; then
-            MODERN_SOURCE=true
-          fi
-          echo "Arquitectura modular actual: $MODERN_SOURCE"
-          echo "MODERN_SOURCE=$MODERN_SOURCE" >> "$GITHUB_ENV"
 
           if [ "$MODERN_SOURCE" = "true" ]; then
             python3 .github/scripts/fix_modern_source_compile_errors.py "$SOURCE_ROOT"
