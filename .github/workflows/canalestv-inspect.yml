@@ -32,3 +32,15 @@ jobs:
             find "$RUNNER_TEMP/source" -type f \( -name 'AndroidManifest.xml' -o -name 'strings.xml' -o -name '*.kt' -o -name '*.java' -o -path '*/res/menu/*' -o -name '*.xml' \) \
               -not -path '*/build/*' -print0 | xargs -0 grep -inE 'agenda|angulismo.?tv|app_name|ic_launcher|Canales' 2>/dev/null | head -n 500 || true
           } | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "## MainActivity secciones críticas"
+          sed -n '60,180p;235,335p;410,440p' "$RUNNER_TEMP/source/app/src/main/java/com/angulismotv/MainActivity.kt"
+          echo "## Gradle app"
+          sed -n '1,180p' "$RUNNER_TEMP/source/app/build.gradle.kts"
+          echo "## Manifest"
+          sed -n '35,110p' "$RUNNER_TEMP/source/app/src/main/AndroidManifest.xml"
+          echo "## Menu XML"
+          cat "$RUNNER_TEMP/source/app/src/main/res/menu/bottom_nav_menu.xml"
+          echo "## Strings"
+          cat "$RUNNER_TEMP/source/app/src/main/res/values/strings.xml"
+          echo "## Logo resources"
+          find "$RUNNER_TEMP/source/app/src/main/res" -maxdepth 3 -type f | grep -E 'ic_tv_logo|ic_launcher|mipmap|drawable/ic_tv' | sort
