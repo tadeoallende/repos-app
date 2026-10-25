@@ -713,7 +713,13 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         text = replace_once(text, "            val call = httpClient.newCall(request)\n", "            val call = httpClient.newCall(request).apply {\n                timeout().timeout(90, TimeUnit.SECONDS)\n            }\n", "limitar duración total de descarga M3U")
 
     elif name == "app/src/main/java/com/angulismotv/data/ChannelFeedDataSource.kt":
-        text = replace_once(text, "import java.util.Locale\n", "import java.util.Locale\nimport java.util.concurrent.TimeUnit\n", "importar límite de tiempo de fuente JSON")
+        if "import java.util.concurrent.TimeUnit\n" not in text:
+            if "import java.util.Locale\n" in text:
+                text = text.replace("import java.util.Locale\n", "import java.util.Locale\nimport java.util.concurrent.TimeUnit\n", 1)
+            elif "import java.io.InputStream\n" in text:
+                text = text.replace("import java.io.InputStream\n", "import java.io.InputStream\nimport java.util.concurrent.TimeUnit\n", 1)
+            else:
+                raise RuntimeError("No se pudo importar TimeUnit en ChannelFeedDataSource.kt: bloque de imports desconocido.")
         text = replace_once(text, "            val call = httpClient.newCall(request)\n", "            val call = httpClient.newCall(request).apply {\n                timeout().timeout(90, TimeUnit.SECONDS)\n            }\n", "limitar duración total de descarga JSON")
 
     elif name == "app/src/main/java/com/angulismotv/data/ChannelFilterEngine.kt":
