@@ -1,0 +1,260 @@
+name: CanalesTV - APK de prueba firmado
+
+run-name: "CanalesTV · variante de prueba firmada"
+
+on:
+  push:
+    branches:
+      - chatgpt/canalestv-test-2026-10-25
+    paths:
+      - ".github/workflows/build-canalestv-test.yml"
+      - "AngulismoTV-ui-estandarizado.zip"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canalestv-test-${ github.ref }
+  cancel-in-progress: false
+
+jobs:
+  build-canalestv:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      ANDROID_RELEASE_KEYSTORE_BASE64: ${ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }
+      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${ secrets.ANDROID_RELEASE_STORE_PASSWORD }
+      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${ secrets.ANDROID_RELEASE_KEY_ALIAS }
+      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${ secrets.ANDROID_RELEASE_KEY_PASSWORD }
+
+    steps:
+      - name: Checkout de la variante de prueba
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt/canalestv-test-2026-10-25
+
+      - name: Validar y extraer el ZIP correcto
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="AngulismoTV-ui-estandarizado.zip"
+          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+          test -s "$ZIP"
+          test "$(git hash-object -- "$ZIP")" = "$EXPECTED_GIT_BLOB_SHA"
+          PROJECT_DIR="$RUNNER_TEMP/canalestv-project"
+          mkdir -p "$PROJECT_DIR"
+          unzip -q "$ZIP" -d "$PROJECT_DIR"
+          test -s "$PROJECT_DIR/settings.gradle.kts"
+          test -s "$PROJECT_DIR/app/build.gradle.kts"
+          chmod +x "$PROJECT_DIR/gradlew"
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "SOURCE_ZIP_SHA256=$(sha256sum "$ZIP" | awk '{print $1}')" >> "$GITHUB_ENV"
+
+      - name: Preparar Java 17 y Android SDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Preparar Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+          accept-android-sdk-licenses: true
+
+      - name: Instalar plataforma Android
+        run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
+
+      - name: Aplicar marca CanalesTV y retirar Agenda de la interfaz
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet Pillow
+          python3 - <<'PY'
+          from pathlib import Path
+          import os, re
+          from PIL import Image, ImageDraw
+
+          root = Path(os.environ["PROJECT_DIR"])
+          app = root / "app"
+          main = app / "src/main"
+
+          # Nombre mostrado por Android.
+          for p in (main / "res").glob("values*/strings.xml"):
+              t = p.read_text(encoding="utf-8")
+              t, n = re.subn(r'(<string\s+name="app_name"[^>]*>).*?(</string>)',
+                             r'\1CanalesTV\2', t, count=1, flags=re.S)
+              if n: p.write_text(t, encoding="utf-8")
+
+          # Paquete instalable independiente para no sustituir la app original.
+          gp = app / "build.gradle.kts"
+          g, n = re.subn(r'applicationId\s*=\s*"com\.angulismotv"',
+                         'applicationId = "com.canalestv.app"',
+                         gp.read_text(encoding="utf-8"), count=1)
+          if n != 1: raise SystemExit("No se pudo separar el identificador de la app.")
+          gp.write_text(g, encoding="utf-8")
+
+          # Forzar que esta variante arranque y navegue solo en Canales.
+          p = main / "java/com/angulismotv/MainActivity.kt"
+          t = p.read_text(encoding="utf-8")
+          t = t.replace('currentNavId = savedInstanceState?.getInt(STATE_CURRENT_NAV, R.id.nav_channels)',
+                        'currentNavId = R.id.nav_channels')
+          t = t.replace('if (isTV && navId != R.id.nav_channels && navId != R.id.nav_agenda) return',
+                        'if (navId != R.id.nav_channels) return')
+          t, n = re.subn(
+              r'val inactiveFragment = fragmentForId\(\s*if \(currentNavId == R\.id\.nav_channels\) R\.id\.nav_agenda else R\.id\.nav_channels\s*\)',
+              'val inactiveFragment = fragmentManager.findFragmentByTag(TAG_AGENDA)', t, count=1)
+          if n != 1: raise SystemExit("No se encontró el bloque esperado de navegación.")
+          t, n = re.subn(r'if \(inactiveFragment\.isAdded\) hide\(inactiveFragment\)',
+                         'inactiveFragment?.let { if (it.isAdded) hide(it) }', t, count=1)
+          if n != 1: raise SystemExit("No se pudo adaptar el fragmento inactivo.")
+          t = t.replace('private fun setupNavigation() {',
+                        'private fun setupNavigation() {\n        currentNavId = R.id.nav_channels\n        binding.bottomNavigation.menu.findItem(R.id.nav_agenda)?.isVisible = false')
+          t = t.replace('private fun setupSideMenu() {',
+                        'private fun setupSideMenu() {\n        menuAgenda.visibility = View.GONE\n        menuAgenda.isFocusable = false\n        menuAgenda.isClickable = false')
+          t = t.replace('UpdateManager(this).checkForUpdates(silent = true)',
+                        '// Actualizador desactivado en esta variante de prueba.')
+          t = t.replace('Salir de AngulismoTV', 'Salir de CanalesTV')
+          p.write_text(t, encoding="utf-8")
+
+          # Mantener el ID interno, pero no mostrar el botón Agenda en móvil.
+          p = main / "res/menu/bottom_nav_menu.xml"
+          t = p.read_text(encoding="utf-8")
+          pat = r'<item\b(?=[^>]*android:id="@\+id/nav_agenda")[^>]*/>'
+          t, n = re.subn(pat, lambda m: m.group(0)[:-2] + ' android:visible="false" />',
+                         t, count=1, flags=re.S)
+          if n != 1: raise SystemExit("No se encontró el item Agenda del menú.")
+          p.write_text(t, encoding="utf-8")
+
+          # Ocultar Agenda en el menú lateral de TV y mantener el foco en Canales.
+          p = main / "res/layout/view_tv_side_menu.xml"
+          t = p.read_text(encoding="utf-8")
+          t, n = re.subn(
+              r'(<LinearLayout\b(?=[^>]*android:id="@\+id/menu_agenda")[^>]*)(>)',
+              lambda m: re.sub(r'\sandroid:visibility="[^"]*"', '', m.group(1)) +
+                        ' android:visibility="gone"' + m.group(2), t, count=1, flags=re.S)
+          if n != 1: raise SystemExit("No se encontró el item Agenda del menú TV.")
+          t = t.replace('android:nextFocusDown="@id/menu_agenda"',
+                        'android:nextFocusDown="@id/menu_channels"')
+          p.write_text(t, encoding="utf-8")
+
+          # Logo del encabezado: televisor genérico sin nombre de marca.
+          (main / "res/drawable/ic_tv_logo.xml").write_text('''<?xml version="1.0" encoding="utf-8"?>
+          <vector xmlns:android="http://schemas.android.com/apk/res/android"
+              android:width="48dp" android:height="48dp"
+              android:viewportWidth="48" android:viewportHeight="48">
+              <path android:fillColor="#E7F7FF" android:pathData="M15,5 L24,13 L33,5 L36,7 L28,15 L40,15 Q44,15 44,19 L44,36 Q44,40 40,40 L8,40 Q4,40 4,36 L4,19 Q4,15 8,15 L20,15 L12,7 Z"/>
+              <path android:fillColor="#14243B" android:pathData="M9,20 L39,20 L39,34 L9,34 Z"/>
+              <path android:fillColor="#42D6E8" android:pathData="M18,43 L30,43 L30,45 L18,45 Z"/>
+              <path android:fillColor="#42D6E8" android:pathData="M21,39 L27,39 L29,43 L19,43 Z"/>
+          </vector>
+          ''', encoding="utf-8")
+          p = main / "res/layout/activity_main.xml"
+          p.write_text(p.read_text(encoding="utf-8").replace(
+              'android:contentDescription="AngulismoTV"',
+              'android:contentDescription="CanalesTV"'), encoding="utf-8")
+
+          # Sustituir referencias visibles de marca en mensajes de actualización, reportes y Cast.
+          for p in (main / "java").rglob("*.kt"):
+              t = p.read_text(encoding="utf-8")
+              t = t.replace("autorices a AngulismoTV", "autorices a CanalesTV")
+              t = t.replace("Descargando AngulismoTV", "Descargando CanalesTV")
+              t = t.replace("Error AngulismoTV", "Error CanalesTV")
+              t = t.replace('ifBlank { "AngulismoTV" }', 'ifBlank { "CanalesTV" }')
+              t = t.replace('"AngulismoTV ${BuildConfig.VERSION_NAME}', '"CanalesTV ${BuildConfig.VERSION_NAME}')
+              p.write_text(t, encoding="utf-8")
+
+          # Rehacer los PNG del launcher en todas las densidades.
+          res = main / "res"
+          def icon(size, transparent=False, rounded=False):
+              bg = (0,0,0,0) if transparent else (16,31,53,255)
+              im = Image.new("RGBA", (size,size), bg)
+              d = ImageDraw.Draw(im)
+              if not transparent:
+                  pad=max(1,int(size*.03))
+                  if rounded: d.ellipse((pad,pad,size-pad,size-pad),fill=(16,31,53,255))
+                  else: d.rounded_rectangle((pad,pad,size-pad,size-pad),radius=max(1,int(size*.2)),fill=(16,31,53,255))
+              white=(231,247,255,255); cyan=(66,214,232,255)
+              w=max(1,int(size*.035))
+              d.line((int(size*.38),int(size*.26),int(size*.27),int(size*.14)),fill=cyan,width=w)
+              d.line((int(size*.62),int(size*.26),int(size*.73),int(size*.14)),fill=cyan,width=w)
+              d.rounded_rectangle((int(size*.16),int(size*.27),int(size*.84),int(size*.70)),radius=max(1,int(size*.09)),fill=white)
+              d.rounded_rectangle((int(size*.22),int(size*.33),int(size*.78),int(size*.63)),radius=max(1,int(size*.035)),fill=(20,36,59,255))
+              d.line((int(size*.43),int(size*.75),int(size*.57),int(size*.75)),fill=cyan,width=w)
+              d.line((int(size*.5),int(size*.70),int(size*.5),int(size*.75)),fill=cyan,width=w)
+              return im
+          for folder in res.glob("mipmap-*"):
+              if folder.is_dir():
+                  for p in folder.glob("ic_launcher*.png"):
+                      with Image.open(p) as old: size=old.size[0]
+                      icon(size, transparent=("foreground" in p.stem),
+                           rounded=("round" in p.stem)).save(p)
+
+          print("CanalesTV: nombre e iconos genéricos; solo Canales visible; updater automático desactivado.")
+          PY
+
+      - name: Preparar Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Validar y preparar firma Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$ANDROID_RELEASE_KEYSTORE_BASE64" ||
+                -z "$ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD" ||
+                -z "$ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS" ||
+                -z "$ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD" ]]; then
+            echo "::error::Faltan secretos de firma Android en GitHub."
+            exit 1
+          fi
+          KEYSTORE_PATH="$RUNNER_TEMP/canalestv-release.jks"
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" \
+            -storepass "$ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD" \
+            -alias "$ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS" >/dev/null
+          echo "ORG_GRADLE_PROJECT_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+
+      - name: Compilar APK Release firmado
+        working-directory: ${ env.PROJECT_DIR }
+        shell: bash
+        run: ./gradlew --no-daemon clean assembleRelease --stacktrace
+
+      - name: Verificar firma y publicar APK de prueba
+        env:
+          GH_TOKEN: ${ github.token }
+        working-directory: ${ env.PROJECT_DIR }
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -1)"
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          cp "$APK" "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.apk"
+          (cd "$GITHUB_WORKSPACE" && sha256sum CanalesTV-prueba-firmado.apk > CanalesTV-prueba-firmado.sha256)
+          TAG="canalestv-test-${ github.run_id }"
+          gh release create "$TAG" \
+            "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.apk" \
+            "$GITHUB_WORKSPACE/CanalesTV-prueba-firmado.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "CanalesTV - APK de prueba firmado" \
+            --notes "Variante de prueba desde AngulismoTV-ui-estandarizado.zip: nombre CanalesTV, icono genérico, solo navegación Canales y actualizador desactivado. SHA-256 del ZIP: $SOURCE_ZIP_SHA256. Firma verificada con apksigner." \
+            --prerelease
+          {
+            echo "## CanalesTV - APK de prueba"
+            echo "- APK firmado: https://github.com/tadeoallende/repos-app/releases/download/$TAG/CanalesTV-prueba-firmado.apk"
+            echo "- SHA-256: https://github.com/tadeoallende/repos-app/releases/download/$TAG/CanalesTV-prueba-firmado.sha256"
+            echo "- ZIP de origen SHA-256: $SOURCE_ZIP_SHA256"
+            echo "- Firma verificada con apksigner."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar artefacto de Actions
+        uses: actions/upload-artifact@v4
+        with:
+          name: CanalesTV-prueba-firmado
+          path: |
+            CanalesTV-prueba-firmado.apk
+            CanalesTV-prueba-firmado.sha256
+          if-no-files-found: error
+          retention-days: 30
