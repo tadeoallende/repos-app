@@ -1,6 +1,6 @@
 --- a/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt
 +++ b/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt
-@@ -3,11 +3,13 @@
+@@ -3,11 +3,12 @@
  import android.content.Context
  import android.os.Handler
  import android.util.Log
@@ -10,7 +10,7 @@
  import com.google.android.exoplayer2.ExoPlayer
  import com.google.android.exoplayer2.PlaybackException
  import com.google.android.exoplayer2.Player
-+import com.google.android.exoplayer2.Tracks
+ import com.google.android.exoplayer2.Tracks
  import com.google.android.exoplayer2.audio.AudioAttributes
  import com.google.android.exoplayer2.ui.PlayerView
  
