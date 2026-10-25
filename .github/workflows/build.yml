@@ -102,15 +102,18 @@ jobs:
           (cd "$SOURCE_ROOT" && zip -qr "$GITHUB_WORKSPACE/project-base.zip" . \
             -x './.gradle/*' './.idea/*' './build/*' './app/build/*' './local.properties' './*.zip')
 
-          python3 .github/scripts/apply_zip_overrides.py "$GITHUB_WORKSPACE/project-base.zip"
           if [ "$MODERN_SOURCE" != "true" ]; then
+            # These overlays rewrite old monolithic APIs and add controllers that are
+            # absent from the current modular source ZIP. Keep them paired with their
+            # matching legacy source generation only.
+            python3 .github/scripts/apply_zip_overrides.py "$GITHUB_WORKSPACE/project-base.zip"
             python3 .github/scripts/apply_fullscreen_player_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
             python3 .github/scripts/apply_fullscreen_surface_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
             python3 .github/scripts/apply_playback_reload_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
             python3 .github/scripts/apply_playback_lifecycle_modularization.py "$GITHUB_WORKSPACE/project-base.zip"
             python3 .github/scripts/apply_player_quality_improvements.py "$GITHUB_WORKSPACE/project-base.zip"
           else
-            echo "Se omiten refactorizaciones legacy del reproductor: el ZIP ya usa la API modular actual."
+            echo "Se omiten overlays y refactorizaciones legacy: el ZIP ya contiene la arquitectura modular actual."
           fi
           python3 .github/scripts/test_zip_duplicate_entries.py "$GITHUB_WORKSPACE/project-base.zip"
           mkdir -p proyecto/compilacion
