@@ -31,4 +31,4 @@ jobs:
             echo "## Manifest, recursos y referencias de agenda/marca"
             find "$RUNNER_TEMP/source" -type f \( -name 'AndroidManifest.xml' -o -name 'strings.xml' -o -name '*.kt' -o -name '*.java' -o -path '*/res/menu/*' -o -name '*.xml' \) \
               -not -path '*/build/*' -print0 | xargs -0 grep -inE 'agenda|angulismo.?tv|app_name|ic_launcher|Canales' 2>/dev/null | head -n 500 || true
-          } >> "$GITHUB_STEP_SUMMARY"
+          } | tee -a "$GITHUB_STEP_SUMMARY"
