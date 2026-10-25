@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - '*.zip'
+      - '.github/patches/**'
       - 'fuentes.json'
       - '.github/workflows/build.yml'
       - '.github/project-overrides/**'
