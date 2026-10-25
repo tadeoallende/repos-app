@@ -82,9 +82,33 @@ jobs:
           for PATCH_FILE in .github/patches/audio-etapa58-0*.patch; do
             test -s "$PATCH_FILE"
             echo "Aplicando $(basename "$PATCH_FILE")"
-            patch --batch --forward --no-backup-if-mismatch -p1 -d "$SOURCE_ROOT" < "$PATCH_FILE"
+            if ! patch --batch --forward --no-backup-if-mismatch -p1 -d "$SOURCE_ROOT" < "$PATCH_FILE"; then
+              echo "::warning::El parche tuvo algún contexto distinto; se comprobarán explícitamente los cambios requeridos."
+            fi
           done
-          find "$SOURCE_ROOT/app/src/main/res" -type f -name '*.orig' -delete
+          # En la fuente publicada de build-258 algunas importaciones ya están ordenadas
+          # de forma diferente. Garantizar ambas sin duplicarlas y fallar si faltan cambios reales.
+          python3 - "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt" <<'PY'
+          from pathlib import Path
+          import sys
+          p = Path(sys.argv[1])
+          s = p.read_text()
+          required = [
+              "import android.widget.Toast",
+              "import com.google.android.exoplayer2.Tracks",
+          ]
+          lines = s.splitlines()
+          for item in required:
+              if item not in lines:
+                  insert_at = next((i + 1 for i, line in enumerate(lines) if line.startswith("package ")), 0)
+                  lines.insert(insert_at, item)
+          p.write_text("\\n".join(lines) + "\\n")
+          PY
+          find "$SOURCE_ROOT" -type f \\( -name '*.orig' -o -name '*.rej' \\) -delete
+          grep -Fq 'audioNoticeShown' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt"
+          grep -Fq 'notifyUnsupportedAudio(summary)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/InlinePlaybackEngineController.kt"
+          grep -Fq 'shouldNotifyUser' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/PlayerAudioDiagnosticPolicy.kt"
+          grep -Fq 'formatReport' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/PlayerAudioDiagnostics.kt"
           grep -Fq 'lastAudioErrorGeneration' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
           grep -Fq 'createRenderersFactory' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/StreamMediaSourceFactory.kt"
           test -s "$SOURCE_ROOT/app/src/main/res/drawable/ic_audio_info.xml"
