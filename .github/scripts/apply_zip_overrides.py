@@ -656,11 +656,20 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
         val view = LayoutInflater.from(parent.context).inflate(layout, parent, false)""",
             "elegir fila de canal XML")
 
-        text = replace_once(text,
-            "val logoRadius = if (isTV) 12 else (6 * itemView.resources.displayMetrics.density + 0.5f).toInt()",
-            """val logoRadiusRes = if (isTV) R.dimen.channel_logo_corner_radius_tv else R.dimen.channel_logo_corner_radius_mobile
-            val logoRadius = itemView.resources.getDimensionPixelSize(logoRadiusRes)""",
-            "radio del logo desde dimens.xml")
+        old_logo_radius = "val logoRadius = if (isTV) 12 else (6 * itemView.resources.displayMetrics.density + 0.5f).toInt()"
+        new_logo_radius = """val logoRadiusRes = if (isTV) R.dimen.channel_logo_corner_radius_tv else R.dimen.channel_logo_corner_radius_mobile
+            val logoRadius = itemView.resources.getDimensionPixelSize(logoRadiusRes)"""
+        # This overlay has been run against several generations of ChannelsAdapter.
+        # Some newer source ZIPs already use the centralized UiDimensions helper with
+        # a differently named resource variable. Treat that as equivalent instead of
+        # failing the entire APK build.
+        if old_logo_radius in text or new_logo_radius in text:
+            text = replace_once(text, old_logo_radius, new_logo_radius, "radio del logo desde dimens.xml")
+        elif not (
+            "val logoRadiusDimension = if (isTV)" in text
+            and "UiDimensions.px(itemView.resources, logoRadiusDimension)" in text
+        ):
+            raise RuntimeError("No se pudo aplicar radio del logo desde dimens.xml: el código base no coincide.")
 
         text = text.replace("import android.util.TypedValue\n", "")
         import re
@@ -672,7 +681,17 @@ def apply_source_optimizations(name: str, raw: bytes) -> bytes:
             flags=re.S,
         )
         if visual_init_count != 1:
-            raise RuntimeError("No se pudo retirar la configuración visual de ChannelsAdapter.kt")
+            # Newer ZIPs use an init block that already reads all dimensions from
+            # resources via UiDimensions. Do not remove that block: it also applies
+            # TV/mobile text appearances and layout params. The old density-only
+            # block is the only one this legacy cleanup can safely remove.
+            already_resource_backed = (
+                "UiDimensions.px(itemView.resources, R.dimen.channel_logo_size_tv)" in text
+                and "UiDimensions.px(itemView.resources, R.dimen.channel_logo_size_mobile)" in text
+                and "val logoRadiusDimension = if (isTV)" in text
+            )
+            if not already_resource_backed:
+                raise RuntimeError("No se pudo retirar la configuración visual de ChannelsAdapter.kt: variante de código desconocida.")
 
     elif name == "app/src/main/java/com/angulismotv/ui/InlinePlayerPresentationController.kt":
         text = replace_once(text, "        inlinePlayerContainer.visibility = View.VISIBLE\n        if (!isTV()) {\n", "        inlinePlayerContainer.visibility = View.VISIBLE\n        tvPlayerEmptyState?.visibility = View.GONE\n        if (!isTV()) {\n", "ocultar placeholder al seleccionar")
