@@ -1,0 +1,35 @@
+--- a/app/src/test/java/com/angulismotv/player/PlayerAudioDiagnosticPolicyTest.kt
++++ b/app/src/test/java/com/angulismotv/player/PlayerAudioDiagnosticPolicyTest.kt
+@@ -1,6 +1,8 @@
+ package com.angulismotv.player
+ 
+ import org.junit.Assert.assertEquals
++import org.junit.Assert.assertFalse
++import org.junit.Assert.assertTrue
+ import org.junit.Test
+ 
+ class PlayerAudioDiagnosticPolicyTest {
+@@ -42,4 +44,23 @@
+             PlayerAudioDiagnosticPolicy.causeChain(root, 5)
+         )
+     }
++
++    @Test fun onlyUnsupportedAudioNotifiesTheUser() {
++        PlayerAudioDiagnosticPolicy.TrackState.values().forEach { state ->
++            assertEquals(
++                state == PlayerAudioDiagnosticPolicy.TrackState.NO_SUPPORTED_TRACKS,
++                PlayerAudioDiagnosticPolicy.shouldNotifyUser(state)
++            )
++        }
++    }
++
++    @Test fun everyStateHasAUserFacingDescription() {
++        PlayerAudioDiagnosticPolicy.TrackState.values().forEach { state ->
++            assertTrue(PlayerAudioDiagnosticPolicy.describeState(state).isNotBlank())
++        }
++        assertFalse(
++            PlayerAudioDiagnosticPolicy.describeState(PlayerAudioDiagnosticPolicy.TrackState.NO_TRACKS) ==
++                PlayerAudioDiagnosticPolicy.describeState(PlayerAudioDiagnosticPolicy.TrackState.READY)
++        )
++    }
+ }
