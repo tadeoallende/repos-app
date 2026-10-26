@@ -1,0 +1,151 @@
+name: Aplicar corrección de inicio Cast al ZIP fuente
+
+on:
+  push:
+    branches:
+      - chatgpt/prueba-acceso-2026-10-21-3
+    paths:
+      - ".github/workflows/apply-cast-startup-fix.yml"
+      - ".github/patches/cast-startup-crash-fix.patch"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  patch-source-and-rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      BRANCH: chatgpt/prueba-acceso-2026-10-21-3
+      GH_TOKEN: ${ github.token }
+    steps:
+      - name: Checkout de la rama de pruebas
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt/prueba-acceso-2026-10-21-3
+
+      - name: Aplicar corrección basada en el fallo conocido de Cast
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="AngulismoTV-ui-estandarizado.zip"
+          test -s "$ZIP"
+          SRC_PARENT="$RUNNER_TEMP/angulismotv-patched"
+          mkdir -p "$SRC_PARENT"
+          unzip -q "$ZIP" -d "$SRC_PARENT"
+          SOURCE_ROOT="$SRC_PARENT"
+          if [ ! -f "$SOURCE_ROOT/settings.gradle.kts" ]; then
+            SETTINGS="$(find "$SRC_PARENT" -mindepth 1 -name settings.gradle.kts -print -quit)"
+            test -n "$SETTINGS"
+            SOURCE_ROOT="$(dirname "$SETTINGS")"
+          fi
+          test -s "$SOURCE_ROOT/app/build.gradle.kts"
+          patch --batch --forward --fuzz=0 -p1 -d "$SOURCE_ROOT" < .github/patches/cast-startup-crash-fix.patch
+          grep -Fq 'playServicesCast = "23.0.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
+          grep -Fq 'mediarouter = "1.9.0-beta01"' "$SOURCE_ROOT/gradle/libs.versions.toml"
+          grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt"
+          grep -Fq 'CastContext en Application.onCreate' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
+          ! grep -Fq 'CastContext.getSharedInstance(this)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
+          grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"
+
+          NEW_ZIP="$RUNNER_TEMP/AngulismoTV-ui-estandarizado.zip"
+          (cd "$SOURCE_ROOT" && zip -qr "$NEW_ZIP" . \
+            -x './.gradle/*' './.idea/*' './build/*' './app/build/*' \
+               './local.properties' './*.zip' './*.jks' './*.keystore' \
+               './keystore.properties' './*.pem' './.env' './.env.*')
+          cp "$NEW_ZIP" "$ZIP"
+          sha256sum "$ZIP" > "$ZIP.sha256"
+          unzip -t "$ZIP" | tail -n 2
+          echo "SHA-256 de la fuente corregida:"
+          cat "$ZIP.sha256"
+
+      - name: Actualizar validación SHA-256 en los workflows
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          old_path = '      - "AngulismoTV-ui-estandarizado.zip"\n'
+          new_path = old_path + '      - "AngulismoTV-ui-estandarizado.zip.sha256"\n'
+
+          build_path = Path(".github/workflows/build-clean-signed.yml")
+          build = build_path.read_text()
+          if new_path not in build:
+              if old_path not in build:
+                  raise SystemExit("No se encontró el filtro de ZIP en build-clean-signed.yml")
+              build = build.replace(old_path, new_path, 1)
+
+          old_block = '''          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+          test -s "$ZIP"
+          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
+          if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
+            echo "::error::El ZIP no coincide con el archivo verificado en la rama."
+            echo "Esperado Git blob: $EXPECTED_GIT_BLOB_SHA"
+            echo "Encontrado Git blob: $ACTUAL_GIT_BLOB_SHA"
+            exit 1
+          fi
+          ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
+          '''
+          new_block = '''          test -s "$ZIP"
+          test -s "$ZIP.sha256"
+          sha256sum --check "$ZIP.sha256"
+          ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
+          '''
+          if old_block in build:
+              build = build.replace(old_block, new_block, 1)
+          elif new_block not in build:
+              raise SystemExit("No se encontró el bloque de verificación de ZIP esperado")
+          build_path.write_text(build)
+
+          export_path = Path(".github/workflows/export-source-for-crash-analysis.yml")
+          export = export_path.read_text()
+          if new_path not in export:
+              if old_path not in export:
+                  raise SystemExit("No se encontró el filtro de ZIP en export-source-for-crash-analysis.yml")
+              export = export.replace(old_path, new_path, 1)
+
+          old_export = '''          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+          test -s "$ZIP"
+          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
+          test "$ACTUAL_GIT_BLOB_SHA" = "$EXPECTED_GIT_BLOB_SHA"
+          unzip -t "$ZIP" | tail -n 2
+          '''
+          new_export = '''          test -s "$ZIP"
+          test -s "$ZIP.sha256"
+          sha256sum --check "$ZIP.sha256"
+          unzip -t "$ZIP" | tail -n 2
+          '''
+          if old_export in export:
+              export = export.replace(old_export, new_export, 1)
+          elif new_export not in export:
+              raise SystemExit("No se encontró el bloque de verificación en export-source-for-crash-analysis.yml")
+          export_path.write_text(export)
+          PY
+
+      - name: Confirmar la corrección en la rama de pruebas
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            "AngulismoTV-ui-estandarizado.zip" \
+            "AngulismoTV-ui-estandarizado.zip.sha256" \
+            ".github/workflows/build-clean-signed.yml" \
+            ".github/workflows/export-source-for-crash-analysis.yml"
+          if git diff --cached --quiet; then
+            echo "La corrección ya está aplicada; no hace falta otro commit."
+          else
+            git commit -m "fix: evitar crash de inicio por inicialización temprana de Cast"
+            git push origin "HEAD:$BRANCH"
+          fi
+
+      - name: Lanzar Release firmado con pruebas de arranque
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh workflow run build-clean-signed.yml --ref "$BRANCH"
+          echo "Se despachó un nuevo build Release firmado de la fuente corregida."
