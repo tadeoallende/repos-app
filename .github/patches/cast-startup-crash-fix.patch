@@ -95,3 +95,26 @@
 -            val context = castContext ?: CastContext.getSharedInstance(activity)
 +            val context = ensureCastInitialized()
              val session = context.sessionManager.currentCastSession
+
+--- a/gradle/libs.versions.toml
++++ b/gradle/libs.versions.toml
+@@ -12,8 +12,8 @@
+ coroutines = "1.7.3"
+ glide = "4.16.0"
+ lifecycle = "2.7.0"
+-playServicesCast = "21.4.0"
+-mediarouter = "1.6.0"
++playServicesCast = "23.0.0"
++mediarouter = "1.9.0-beta01"
+ junit = "4.13.2"
+ junitExt = "1.2.1"
+ espresso = "3.6.1"
+--- a/app/proguard-rules.pro
++++ b/app/proguard-rules.pro
+@@ -1,3 +1,6 @@
++# Cast SDK carga este proveedor por nombre desde el meta-data del AndroidManifest.
++-keep class com.angulismotv.utils.CastOptionsProvider { *; }
++
+ # Modelos que Gson (de)serializa por reflexión
+ -keepclassmembers class com.angulismotv.data.ChannelRepository$* { <fields>; }
+ -keep class com.angulismotv.data.ChannelFeedDataSource$* { <fields>; }
