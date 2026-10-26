@@ -1,0 +1,66 @@
+name: Exportar fuente exacta para diagnóstico de crash
+
+on:
+  push:
+    branches:
+      - chatgpt/prueba-acceso-2026-10-21-3
+    paths:
+      - ".github/workflows/export-source-for-crash-analysis.yml"
+      - "AngulismoTV-ui-estandarizado.zip"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout de la rama de prueba
+        uses: actions/checkout@v4
+        with:
+          ref: chatgpt/prueba-acceso-2026-10-21-3
+
+      - name: Validar y preparar el ZIP exacto
+        shell: bash
+        run: |
+          set -euo pipefail
+          ZIP="AngulismoTV-ui-estandarizado.zip"
+          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+          test -s "$ZIP"
+          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
+          test "$ACTUAL_GIT_BLOB_SHA" = "$EXPECTED_GIT_BLOB_SHA"
+          unzip -t "$ZIP" | tail -n 2
+          DEST="$GITHUB_WORKSPACE/source-project"
+          mkdir -p "$DEST"
+          unzip -q "$ZIP" -d "$DEST"
+          ROOT="$DEST"
+          if [ ! -f "$ROOT/settings.gradle.kts" ]; then
+            SETTINGS="$(find "$DEST" -mindepth 1 -name settings.gradle.kts -print -quit)"
+            test -n "$SETTINGS"
+            ROOT="$(dirname "$SETTINGS")"
+          fi
+          test -s "$ROOT/settings.gradle.kts"
+          test -s "$ROOT/app/build.gradle.kts"
+          echo "SOURCE_ROOT=$ROOT" >> "$GITHUB_ENV"
+          echo "Git blob SHA validado: $ACTUAL_GIT_BLOB_SHA"
+
+      - name: Empaquetar copia temporal sin credenciales ni outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$SOURCE_ROOT"
+          zip -qr "$GITHUB_WORKSPACE/angulismotv-source-analysis.zip" . \
+            -x './.gradle/*' './.idea/*' './build/*' './app/build/*' \
+               './local.properties' './*.zip' './*.jks' './*.keystore' \
+               './keystore.properties' './*.pem' './.env' './.env.*'
+          echo "Copia temporal del código fuente preparada; no se modificó el proyecto ni se aplicaron parches."
+
+      - name: Publicar fuente para revisión estática
+        uses: actions/upload-artifact@v4
+        with:
+          name: angulismotv-source-analysis
+          path: angulismotv-source-analysis.zip
+          if-no-files-found: error
+          retention-days: 3
