@@ -80,11 +80,14 @@ jobs:
                   if ZIP_PATH not in content:
                       raise SystemExit(f"No se encontró el filtro ZIP en {path}")
                   content = content.replace(ZIP_PATH, SHA_PATH, 1)
+              if 'if [[ -s "$ZIP.sha256" ]]; then' in content:
+                  target.write_text(content)
+                  return
               if kind == "build":
                   pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          echo "SHA-256 del ZIP fuente:)', re.S)
                   suffix = '          ZIP_SHA256="$(sha256sum "$ZIP" | awk \'{print $1}\')"\n'
               else:
-                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "\$ZIP")', re.S)
+                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "\\$ZIP")', re.S)
                   suffix = ''
               replacement = (
                   '          test -s "$ZIP"\n'
@@ -106,7 +109,7 @@ jobs:
 
           update('.github/workflows/build-clean-signed.yml', 'build')
           update('.github/workflows/export-source-for-crash-analysis.yml', 'export')
-          print('Validación de fuente adaptada a SHA-256 tras la corrección del ZIP.')
+          print('Validación SHA-256 idempotente y compatible con la fuente corregida.')
           PY
 
       - name: Corregir las pruebas automatizadas de arranque
@@ -120,6 +123,8 @@ jobs:
           path = Path('.github/workflows/build-clean-signed.yml')
           content = path.read_text()
           for api in ('30', '34'):
+              if f'"startup-api-{api}"' in content and '.github/scripts/test-release-startup.sh' in content:
+                  continue
               pattern = re.compile(
                   r'          script: \|\n(?:(?!      - name:)[^\n]*\n)*?            echo "Inicio verificado en Android API ' + api + r'; PID=\$PID"\n'
               )
@@ -133,18 +138,17 @@ jobs:
                   raise SystemExit(f'No se pudo reemplazar el script de arranque API {api}')
           old_options = '          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect\n'
           new_options = '          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect\n'
-          if content.count(old_options) != 2:
-              raise SystemExit('No se encontraron ambas configuraciones del emulador')
-          content = content.replace(old_options, new_options)
+          if old_options in content:
+              if content.count(old_options) != 2:
+                  raise SystemExit('No se encontraron ambas configuraciones del emulador')
+              content = content.replace(old_options, new_options)
           content = content.replace('          profile: pixel_2\n', '          profile: pixel_2\n          emulator-boot-timeout: 900\n')
           trigger = '      - ".github/scripts/test-release-startup.sh"\n'
           build_trigger = '      - ".github/workflows/build-clean-signed.yml"\n'
-          if trigger not in content:
-              if build_trigger not in content:
-                  raise SystemExit('No se encontró la sección paths del workflow de Release')
+          if trigger not in content and build_trigger in content:
               content = content.replace(build_trigger, build_trigger + trigger, 1)
           path.write_text(content)
-          print('Pruebas de arranque llaman a un script Bash comprobable y capturan errores del dispositivo.')
+          print('Pruebas de arranque idempotentes y con diagnóstico de ADB separado del crash de la app.')
           PY
 
       - name: Confirmar la corrección en la rama de pruebas
@@ -155,10 +159,7 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             "AngulismoTV-ui-estandarizado.zip" \
-            "AngulismoTV-ui-estandarizado.zip.sha256" \
-            ".github/scripts/test-release-startup.sh" \
-            ".github/workflows/build-clean-signed.yml" \
-            ".github/workflows/export-source-for-crash-analysis.yml"
+            "AngulismoTV-ui-estandarizado.zip.sha256"
           if git diff --cached --quiet; then
             echo "La corrección ya está aplicada; no hace falta otro commit."
           else

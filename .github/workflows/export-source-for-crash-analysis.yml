@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/export-source-for-crash-analysis.yml"
       - "AngulismoTV-ui-estandarizado.zip"
+      - "AngulismoTV-ui-estandarizado.zip.sha256"
   workflow_dispatch:
 
 permissions:
@@ -27,10 +28,17 @@ jobs:
         run: |
           set -euo pipefail
           ZIP="AngulismoTV-ui-estandarizado.zip"
-          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
           test -s "$ZIP"
-          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
-          test "$ACTUAL_GIT_BLOB_SHA" = "$EXPECTED_GIT_BLOB_SHA"
+          if [[ -s "$ZIP.sha256" ]]; then
+            sha256sum --check "$ZIP.sha256"
+          else
+            EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+            ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
+            if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
+              echo "::error::El ZIP no coincide con la fuente verificada."
+              exit 1
+            fi
+          fi
           unzip -t "$ZIP" | tail -n 2
           DEST="$GITHUB_WORKSPACE/source-project"
           mkdir -p "$DEST"

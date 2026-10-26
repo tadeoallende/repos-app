@@ -7,8 +7,9 @@ on:
     branches:
       - chatgpt/prueba-acceso-2026-10-21-3
     paths:
-      - ".github/workflows/build-clean-signed.yml"
+      - ".github/scripts/test-release-startup.sh"
       - "AngulismoTV-ui-estandarizado.zip"
+      - "AngulismoTV-ui-estandarizado.zip.sha256"
   workflow_dispatch:
 
 permissions:
@@ -40,14 +41,16 @@ jobs:
         run: |
           set -euo pipefail
           ZIP="AngulismoTV-ui-estandarizado.zip"
-          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
           test -s "$ZIP"
-          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
-          if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
-            echo "::error::El ZIP no coincide con el archivo verificado en la rama."
-            echo "Esperado Git blob: $EXPECTED_GIT_BLOB_SHA"
-            echo "Encontrado Git blob: $ACTUAL_GIT_BLOB_SHA"
-            exit 1
+          if [[ -s "$ZIP.sha256" ]]; then
+            sha256sum --check "$ZIP.sha256"
+          else
+            EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+            ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
+            if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
+              echo "::error::El ZIP no coincide con la fuente verificada."
+              exit 1
+            fi
           fi
           ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
           echo "SHA-256 del ZIP fuente: $ZIP_SHA256"
@@ -134,32 +137,11 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect
           disable-animations: true
           script: |
-            set -eu
-            APP_ID="com.angulismotv"
-            PREFIX="$GITHUB_WORKSPACE/startup-api-30"
-            set +e
-            adb install -r "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" > "${PREFIX}-install.txt" 2>&1
-            INSTALL_RC=$?
-            if [ "$INSTALL_RC" -ne 0 ]; then cat "${PREFIX}-install.txt"; exit 1; fi
-            adb logcat -c
-            adb shell am force-stop "$APP_ID" >/dev/null 2>&1
-            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_ID" > "${PREFIX}-start.txt" 2>&1
-            START_RC=$?
-            sleep 15
-            adb logcat -d -v threadtime > "${PREFIX}-logcat.txt"
-            adb shell dumpsys activity activities > "${PREFIX}-activities.txt" 2>&1
-            adb shell screencap -p /sdcard/startup-screen.png && adb pull /sdcard/startup-screen.png "${PREFIX}-screen.png" >/dev/null 2>&1
-            PID="$(adb shell pidof "$APP_ID" | tr -d '\r')"
-            if [ "$START_RC" -ne 0 ] || [ -z "$PID" ] || grep -Eq 'Process: com\.angulismotv|>>> com\.angulismotv <<<' "${PREFIX}-logcat.txt"; then
-              echo "::error::El APK Release falla al iniciar en Android API 30."
-              grep -E -A35 -B8 'FATAL EXCEPTION|Fatal signal|Process: com\.angulismotv|AndroidRuntime' "${PREFIX}-logcat.txt" | tail -180 || true
-              cat "${PREFIX}-start.txt" || true
-              exit 1
-            fi
-            echo "Inicio verificado en Android API 30; PID=$PID"
+            bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-30"
 
       - name: Prueba de arranque Release en Android 14 (API 34)
         if: success()
@@ -169,32 +151,11 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_2
-          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect
+          emulator-boot-timeout: 900
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect
           disable-animations: true
           script: |
-            set -eu
-            APP_ID="com.angulismotv"
-            PREFIX="$GITHUB_WORKSPACE/startup-api-34"
-            set +e
-            adb install -r "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" > "${PREFIX}-install.txt" 2>&1
-            INSTALL_RC=$?
-            if [ "$INSTALL_RC" -ne 0 ]; then cat "${PREFIX}-install.txt"; exit 1; fi
-            adb logcat -c
-            adb shell am force-stop "$APP_ID" >/dev/null 2>&1
-            adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_ID" > "${PREFIX}-start.txt" 2>&1
-            START_RC=$?
-            sleep 15
-            adb logcat -d -v threadtime > "${PREFIX}-logcat.txt"
-            adb shell dumpsys activity activities > "${PREFIX}-activities.txt" 2>&1
-            adb shell screencap -p /sdcard/startup-screen.png && adb pull /sdcard/startup-screen.png "${PREFIX}-screen.png" >/dev/null 2>&1
-            PID="$(adb shell pidof "$APP_ID" | tr -d '\r')"
-            if [ "$START_RC" -ne 0 ] || [ -z "$PID" ] || grep -Eq 'Process: com\.angulismotv|>>> com\.angulismotv <<<' "${PREFIX}-logcat.txt"; then
-              echo "::error::El APK Release falla al iniciar en Android API 34."
-              grep -E -A35 -B8 'FATAL EXCEPTION|Fatal signal|Process: com\.angulismotv|AndroidRuntime' "${PREFIX}-logcat.txt" | tail -180 || true
-              cat "${PREFIX}-start.txt" || true
-              exit 1
-            fi
-            echo "Inicio verificado en Android API 34; PID=$PID"
+            bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-34"
 
       - name: Guardar logs y capturas del arranque para diagnóstico
         if: always()
