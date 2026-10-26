@@ -42,7 +42,15 @@ jobs:
             SOURCE_ROOT="$(dirname "$SETTINGS")"
           fi
           test -s "$SOURCE_ROOT/app/build.gradle.kts"
-          patch --batch --forward --fuzz=0 -p1 -d "$SOURCE_ROOT" < .github/patches/cast-startup-crash-fix.patch
+          SOURCE_ALREADY_FIXED=false
+          if grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt" &&
+             grep -Fq 'Cast se inicializa bajo demanda al pulsar' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt" &&
+             grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"; then
+            SOURCE_ALREADY_FIXED=true
+            echo "La corrección Cast ya está en la fuente; no se vuelve a aplicar el parche."
+          else
+            patch --batch --forward --fuzz=0 -p1 -d "$SOURCE_ROOT" < .github/patches/cast-startup-crash-fix.patch
+          fi
           grep -Fq 'playServicesCast = "21.4.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
           grep -Fq 'mediarouter = "1.6.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
           grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt"
@@ -50,13 +58,21 @@ jobs:
           ! grep -Fq 'CastContext.getSharedInstance(this)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
           grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"
 
-          NEW_ZIP="$RUNNER_TEMP/AngulismoTV-ui-estandarizado.zip"
-          (cd "$SOURCE_ROOT" && zip -qr "$NEW_ZIP" . \
-            -x './.gradle/*' './.idea/*' './build/*' './app/build/*' \
-               './local.properties' './*.zip' './*.jks' './*.keystore' \
-               './keystore.properties' './*.pem' './.env' './.env.*')
-          cp "$NEW_ZIP" "$ZIP"
-          sha256sum "$ZIP" > "$ZIP.sha256"
+          if [[ "$SOURCE_ALREADY_FIXED" == true ]]; then
+            if [[ -s "$ZIP.sha256" ]]; then
+              sha256sum --check "$ZIP.sha256"
+            else
+              sha256sum "$ZIP" > "$ZIP.sha256"
+            fi
+          else
+            NEW_ZIP="$RUNNER_TEMP/AngulismoTV-ui-estandarizado.zip"
+            (cd "$SOURCE_ROOT" && zip -qr "$NEW_ZIP" . \
+              -x './.gradle/*' './.idea/*' './build/*' './app/build/*' \
+                 './local.properties' './*.zip' './*.jks' './*.keystore' \
+                 './keystore.properties' './*.pem' './.env' './.env.*')
+            cp "$NEW_ZIP" "$ZIP"
+            sha256sum "$ZIP" > "$ZIP.sha256"
+          fi
           unzip -t "$ZIP" | tail -n 2
           echo "SHA-256 de la fuente corregida:"
           cat "$ZIP.sha256"
@@ -167,8 +183,9 @@ jobs:
             git push origin "HEAD:$BRANCH"
           fi
 
-      - name: Confirmar activación del build de Release
+      - name: Ejecutar build firmado y pruebas de arranque
         shell: bash
         run: |
           set -euo pipefail
-          echo "El commit con la fuente corregida activa build-clean-signed.yml mediante el cambio de ZIP y checksum."
+          gh workflow run build-clean-signed.yml --ref "$BRANCH"
+          echo "Se solicitó a GitHub Actions compilar y probar el APK corregido."
