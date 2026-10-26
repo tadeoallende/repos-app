@@ -22,10 +22,17 @@ fail() {
 if [[ ! -s "$APK" ]]; then fail "No se encontró el APK para la prueba de arranque: $APK"; fi
 
 # Wait for ADB to recover if the emulator temporarily reports offline.
+# Hosted runners without KVM can take a long time to boot; retry the bridge
+# without treating a temporarily-offline emulator as an app crash.
+adb start-server >/dev/null 2>&1 || true
 DEVICE_STATE=""
-for attempt in $(seq 1 45); do
+for attempt in $(seq 1 60); do
   DEVICE_STATE="$(adb get-state 2>/dev/null || true)"
   if [[ "$DEVICE_STATE" == "device" ]]; then break; fi
+  if (( attempt % 10 == 0 )); then
+    adb reconnect offline >/dev/null 2>&1 || true
+    adb start-server >/dev/null 2>&1 || true
+  fi
   sleep 2
 done
 adb devices -l > "${PREFIX}-device.txt" 2>&1 || true
