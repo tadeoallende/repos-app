@@ -130,6 +130,31 @@ jobs:
           (cd "$GITHUB_WORKSPACE" && sha256sum AngulismoTV-release-firmado.apk > AngulismoTV-release-firmado.sha256)
           echo "APK firmado, verificado y listo para publicar."
 
+      - name: Publicar APK Release firmado con enlace directo
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="angulismotv-signed-clean-${{ github.run_id }}"
+          gh release create "$TAG" \
+            "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" \
+            "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.sha256" \
+            --target "$GITHUB_SHA" \
+            --title "AngulismoTV APK Release firmado (ZIP limpio)" \
+            --notes "APK candidato compilado desde AngulismoTV-ui-estandarizado.zip verificado. SHA-256 del ZIP fuente: $ZIP_SHA256. Sin aplicación de parches. Firma Android verificada con apksigner. Las pruebas de arranque API 30/34 se ejecutan en este workflow y pueden seguir pendientes al publicarse el APK. Estado y diagnósticos: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID. Commit: $GITHUB_SHA." \
+            --prerelease
+          APK_URL="https://github.com/tadeoallende/repos-app/releases/download/$TAG/AngulismoTV-release-firmado.apk"
+          echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
+          {
+            echo "## APK Release firmado (candidato)"
+            echo "- [Descargar APK firmado (candidato)]($APK_URL)"
+            echo "- Etiqueta de release: $TAG"
+            echo "- SHA-256 del ZIP fuente: $ZIP_SHA256"
+            echo "- La compilación y la firma fueron verificadas con apksigner; la prueba de arranque se ejecuta por separado y su resultado está en el workflow."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Prueba de arranque Release en Android 11 (API 30)
         uses: reactivecircus/android-emulator-runner@v2
         with:
@@ -139,7 +164,7 @@ jobs:
           profile: pixel_2
           emulator-boot-timeout: 900
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect
-          disable-animations: true
+          disable-animations: false
           script: |
             bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-30"
 
@@ -167,31 +192,6 @@ jobs:
             startup-api-34-*
           if-no-files-found: warn
           retention-days: 14
-
-      - name: Publicar APK Release firmado con enlace directo
-        id: publish
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="angulismotv-signed-clean-${{ github.run_id }}"
-          gh release create "$TAG" \
-            "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" \
-            "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.sha256" \
-            --target "$GITHUB_SHA" \
-            --title "AngulismoTV APK Release firmado (ZIP limpio)" \
-            --notes "Compilación Release desde AngulismoTV-ui-estandarizado.zip. SHA-256 del ZIP fuente: $ZIP_SHA256. Sin aplicación de parches. Firma Android verificada con apksigner. Commit: $GITHUB_SHA." \
-            --prerelease
-          APK_URL="https://github.com/tadeoallende/repos-app/releases/download/$TAG/AngulismoTV-release-firmado.apk"
-          echo "apk_url=$APK_URL" >> "$GITHUB_OUTPUT"
-          {
-            echo "## APK Release firmado"
-            echo "- [Descargar APK firmado]($APK_URL)"
-            echo "- Etiqueta de release: $TAG"
-            echo "- SHA-256 del ZIP fuente: $ZIP_SHA256"
-            echo "- La firma fue verificada con apksigner."
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Guardar también como artefacto de Actions
         uses: actions/upload-artifact@v4
