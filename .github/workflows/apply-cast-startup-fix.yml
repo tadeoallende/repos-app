@@ -84,7 +84,7 @@ jobs:
                   pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          echo "SHA-256 del ZIP fuente:)', re.S)
                   suffix = '          ZIP_SHA256="$(sha256sum "$ZIP" | awk \'{print $1}\')"\n'
               else:
-                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "$ZIP")', re.S)
+                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "\$ZIP")', re.S)
                   suffix = ''
               replacement = (
                   '          test -s "$ZIP"\n'
