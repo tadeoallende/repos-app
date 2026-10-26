@@ -13,10 +13,14 @@ permissions:
   contents: write
   actions: write
 
+concurrency:
+  group: cast-startup-fix-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   patch-source-and-rebuild:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     env:
       BRANCH: chatgpt/prueba-acceso-2026-10-21-3
       GH_TOKEN: ${{ github.token }}
@@ -27,7 +31,7 @@ jobs:
           ref: chatgpt/prueba-acceso-2026-10-21-3
           fetch-depth: 5
 
-      - name: Aplicar corrección basada en el fallo conocido de Cast
+      - name: Corregir el inicio Cast y conservar la clave pública
         shell: bash
         run: |
           set -euo pipefail
@@ -43,17 +47,45 @@ jobs:
             SOURCE_ROOT="$(dirname "$SETTINGS")"
           fi
           test -s "$SOURCE_ROOT/app/build.gradle.kts"
+
+          # Esta clave pública la necesita R.raw.update_public_key para compilar.
+          # La última normalización accidentalmente la excluyó junto con los PEM.
           SOURCE_NEEDS_REPACK=false
           KEY_PATH="$SOURCE_ROOT/app/src/main/res/raw/update_public_key.pem"
           if [[ ! -s "$KEY_PATH" ]]; then
             ORIGINAL_ZIP="$RUNNER_TEMP/original-ui-estandarizado.zip"
             ORIGINAL_COMMIT="2f9aef79835a3369d1bfc6a5869fc871d75626c2"
             git show "$ORIGINAL_COMMIT:AngulismoTV-ui-estandarizado.zip" > "$ORIGINAL_ZIP"
-            KEY_ENTRY="$(unzip -Z1 "$ORIGINAL_ZIP" | grep -E '(^|/)app/src/main/res/raw/update_public_key\.pem          grep -Fq 'mediarouter = "1.6.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
+            KEY_ENTRY="$(unzip -Z1 "$ORIGINAL_ZIP" | grep -E '(^|/)app/src/main/res/raw/update_public_key\.pem$' | head -n 1 || true)"
+            if [[ -z "$KEY_ENTRY" ]]; then
+              echo "::error::No se encontró update_public_key.pem en el ZIP fuente original."
+              exit 1
+            fi
+            mkdir -p "$(dirname "$KEY_PATH")"
+            unzip -p "$ORIGINAL_ZIP" "$KEY_ENTRY" > "$KEY_PATH"
+            test -s "$KEY_PATH"
+            SOURCE_NEEDS_REPACK=true
+            echo "Restaurada la clave pública de verificación desde la fuente original."
+          fi
+
+          SOURCE_ALREADY_FIXED=false
+          if grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt" &&
+             grep -Fq 'Cast se inicializa bajo demanda al pulsar' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt" &&
+             grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"; then
+            SOURCE_ALREADY_FIXED=true
+            echo "La corrección Cast ya está aplicada."
+          else
+            patch --batch --forward --fuzz=0 -p1 -d "$SOURCE_ROOT" < .github/patches/cast-startup-crash-fix.patch
+            SOURCE_NEEDS_REPACK=true
+          fi
+
+          grep -Fq 'playServicesCast = "21.4.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
+          grep -Fq 'mediarouter = "1.6.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
           grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt"
           grep -Fq 'Cast se inicializa bajo demanda al pulsar' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
           ! grep -Fq 'CastContext.getSharedInstance(this)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
           grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"
+          test -s "$KEY_PATH"
 
           if [[ "$SOURCE_ALREADY_FIXED" == true && "$SOURCE_NEEDS_REPACK" == false ]]; then
             if [[ -s "$ZIP.sha256" ]]; then
@@ -63,6 +95,7 @@ jobs:
             fi
           else
             NEW_ZIP="$RUNNER_TEMP/AngulismoTV-ui-estandarizado.zip"
+            # Keep update_public_key.pem: it is a public verification key, not a secret.
             (cd "$SOURCE_ROOT" && zip -qr "$NEW_ZIP" . \
               -x './.gradle/*' './.idea/*' './build/*' './app/build/*' \
                  './local.properties' './*.zip' './*.jks' './*.keystore' \
@@ -74,268 +107,17 @@ jobs:
           echo "SHA-256 de la fuente corregida:"
           cat "$ZIP.sha256"
 
-      - name: Actualizar validación SHA-256 en los workflows
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          ZIP_PATH = '      - "AngulismoTV-ui-estandarizado.zip"\n'
-          SHA_PATH = ZIP_PATH + '      - "AngulismoTV-ui-estandarizado.zip.sha256"\n'
-          SOURCE_SHA = '445984424a5a1057fc308aff5622987965a35900'
-
-          def update(path: str, kind: str) -> None:
-              target = Path(path)
-              content = target.read_text()
-              if SHA_PATH not in content:
-                  if ZIP_PATH not in content:
-                      raise SystemExit(f"No se encontró el filtro ZIP en {path}")
-                  content = content.replace(ZIP_PATH, SHA_PATH, 1)
-              if 'if [[ -s "$ZIP.sha256" ]]; then' in content:
-                  target.write_text(content)
-                  return
-              if kind == "build":
-                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          echo "SHA-256 del ZIP fuente:)', re.S)
-                  suffix = '          ZIP_SHA256="$(sha256sum "$ZIP" | awk \'{print $1}\')"\n'
-              else:
-                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "\\$ZIP")', re.S)
-                  suffix = ''
-              replacement = (
-                  '          test -s "$ZIP"\n'
-                  '          if [[ -s "$ZIP.sha256" ]]; then\n'
-                  '            sha256sum --check "$ZIP.sha256"\n'
-                  '          else\n'
-                  f'            EXPECTED_GIT_BLOB_SHA="{SOURCE_SHA}"\n'
-                  '            ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"\n'
-                  '            if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then\n'
-                  '              echo "::error::El ZIP no coincide con la fuente verificada."\n'
-                  '              exit 1\n'
-                  '            fi\n'
-                  '          fi\n' + suffix
-              )
-              updated, count = pattern.subn(lambda _: replacement, content, count=1)
-              if count != 1:
-                  raise SystemExit(f"No se encontró el bloque de validación esperado en {path}")
-              target.write_text(updated)
-
-          update('.github/workflows/build-clean-signed.yml', 'build')
-          update('.github/workflows/export-source-for-crash-analysis.yml', 'export')
-          print('Validación SHA-256 idempotente y compatible con la fuente corregida.')
-          PY
-
-      - name: Corregir las pruebas automatizadas de arranque
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path('.github/workflows/build-clean-signed.yml')
-          content = path.read_text()
-          for api in ('30', '34'):
-              if f'"startup-api-{api}"' in content and '.github/scripts/test-release-startup.sh' in content:
-                  continue
-              pattern = re.compile(
-                  r'          script: \|\n(?:(?!      - name:)[^\n]*\n)*?            echo "Inicio verificado en Android API ' + api + r'; PID=\$PID"\n'
-              )
-              replacement = (
-                  '          script: |\n'
-                  '            bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" '
-                  '"$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-' + api + '"\n'
-              )
-              content, count = pattern.subn(lambda _: replacement, content, count=1)
-              if count != 1:
-                  raise SystemExit(f'No se pudo reemplazar el script de arranque API {api}')
-          old_options = '          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect\n'
-          new_options = '          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect\n'
-          if old_options in content:
-              if content.count(old_options) != 2:
-                  raise SystemExit('No se encontraron ambas configuraciones del emulador')
-              content = content.replace(old_options, new_options)
-          content = content.replace('          profile: pixel_2\n', '          profile: pixel_2\n          emulator-boot-timeout: 900\n')
-          trigger = '      - ".github/scripts/test-release-startup.sh"\n'
-          build_trigger = '      - ".github/workflows/build-clean-signed.yml"\n'
-          if trigger not in content and build_trigger in content:
-              content = content.replace(build_trigger, build_trigger + trigger, 1)
-          path.write_text(content)
-          print('Pruebas de arranque idempotentes y con diagnóstico de ADB separado del crash de la app.')
-          PY
-
-      - name: Confirmar la corrección en la rama de pruebas
+      - name: Confirmar la fuente corregida en la rama
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            "AngulismoTV-ui-estandarizado.zip" \
-            "AngulismoTV-ui-estandarizado.zip.sha256"
+          git add "AngulismoTV-ui-estandarizado.zip" "AngulismoTV-ui-estandarizado.zip.sha256"
           if git diff --cached --quiet; then
-            echo "La corrección ya está aplicada; no hace falta otro commit."
+            echo "El ZIP ya contiene los cambios y el checksum es válido."
           else
-            git commit -m "fix: evitar crash de inicio por inicialización temprana de Cast"
-            git push origin "HEAD:$BRANCH"
-          fi
-
-      - name: Ejecutar build firmado y pruebas de arranque
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh workflow run build-clean-signed.yml --ref "$BRANCH"
-          echo "Se solicitó a GitHub Actions compilar y probar el APK corregido."
- | head -n 1 || true)"
-            if [[ -z "$KEY_ENTRY" ]]; then
-              echo "::error::No se encontró update_public_key.pem en el ZIP fuente original; no se puede compilar la verificación de firmas."
-              exit 1
-            fi
-            mkdir -p "$(dirname "$KEY_PATH")"
-            unzip -p "$ORIGINAL_ZIP" "$KEY_ENTRY" > "$KEY_PATH"
-            test -s "$KEY_PATH"
-            SOURCE_NEEDS_REPACK=true
-            echo "Restaurada la clave pública de verificación desde la fuente original."
-          fi
-          SOURCE_ALREADY_FIXED=false
-          if grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt" &&
-             grep -Fq 'Cast se inicializa bajo demanda al pulsar' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt" &&
-             grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"; then
-            SOURCE_ALREADY_FIXED=true
-            echo "La corrección Cast ya está en la fuente; no se vuelve a aplicar el parche."
-          else
-            patch --batch --forward --fuzz=0 -p1 -d "$SOURCE_ROOT" < .github/patches/cast-startup-crash-fix.patch
-            SOURCE_NEEDS_REPACK=true
-          fi
-          grep -Fq 'playServicesCast = "21.4.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
-          grep -Fq 'mediarouter = "1.6.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
-          grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt"
-          grep -Fq 'Cast se inicializa bajo demanda al pulsar' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
-          ! grep -Fq 'CastContext.getSharedInstance(this)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
-          grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"
-
-          if [[ "$SOURCE_ALREADY_FIXED" == true ]]; then
-            if [[ -s "$ZIP.sha256" ]]; then
-              sha256sum --check "$ZIP.sha256"
-            else
-              sha256sum "$ZIP" > "$ZIP.sha256"
-            fi
-          else
-            NEW_ZIP="$RUNNER_TEMP/AngulismoTV-ui-estandarizado.zip"
-            (cd "$SOURCE_ROOT" && zip -qr "$NEW_ZIP" . \
-              -x './.gradle/*' './.idea/*' './build/*' './app/build/*' \
-                 './local.properties' './*.zip' './*.jks' './*.keystore' \
-                 './keystore.properties' './*.pem' './.env' './.env.*')
-            cp "$NEW_ZIP" "$ZIP"
-            sha256sum "$ZIP" > "$ZIP.sha256"
-          fi
-          unzip -t "$ZIP" | tail -n 2
-          echo "SHA-256 de la fuente corregida:"
-          cat "$ZIP.sha256"
-
-      - name: Actualizar validación SHA-256 en los workflows
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          ZIP_PATH = '      - "AngulismoTV-ui-estandarizado.zip"\n'
-          SHA_PATH = ZIP_PATH + '      - "AngulismoTV-ui-estandarizado.zip.sha256"\n'
-          SOURCE_SHA = '445984424a5a1057fc308aff5622987965a35900'
-
-          def update(path: str, kind: str) -> None:
-              target = Path(path)
-              content = target.read_text()
-              if SHA_PATH not in content:
-                  if ZIP_PATH not in content:
-                      raise SystemExit(f"No se encontró el filtro ZIP en {path}")
-                  content = content.replace(ZIP_PATH, SHA_PATH, 1)
-              if 'if [[ -s "$ZIP.sha256" ]]; then' in content:
-                  target.write_text(content)
-                  return
-              if kind == "build":
-                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          echo "SHA-256 del ZIP fuente:)', re.S)
-                  suffix = '          ZIP_SHA256="$(sha256sum "$ZIP" | awk \'{print $1}\')"\n'
-              else:
-                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "\\$ZIP")', re.S)
-                  suffix = ''
-              replacement = (
-                  '          test -s "$ZIP"\n'
-                  '          if [[ -s "$ZIP.sha256" ]]; then\n'
-                  '            sha256sum --check "$ZIP.sha256"\n'
-                  '          else\n'
-                  f'            EXPECTED_GIT_BLOB_SHA="{SOURCE_SHA}"\n'
-                  '            ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"\n'
-                  '            if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then\n'
-                  '              echo "::error::El ZIP no coincide con la fuente verificada."\n'
-                  '              exit 1\n'
-                  '            fi\n'
-                  '          fi\n' + suffix
-              )
-              updated, count = pattern.subn(lambda _: replacement, content, count=1)
-              if count != 1:
-                  raise SystemExit(f"No se encontró el bloque de validación esperado en {path}")
-              target.write_text(updated)
-
-          update('.github/workflows/build-clean-signed.yml', 'build')
-          update('.github/workflows/export-source-for-crash-analysis.yml', 'export')
-          print('Validación SHA-256 idempotente y compatible con la fuente corregida.')
-          PY
-
-      - name: Corregir las pruebas automatizadas de arranque
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 <<'PY'
-          from pathlib import Path
-          import re
-
-          path = Path('.github/workflows/build-clean-signed.yml')
-          content = path.read_text()
-          for api in ('30', '34'):
-              if f'"startup-api-{api}"' in content and '.github/scripts/test-release-startup.sh' in content:
-                  continue
-              pattern = re.compile(
-                  r'          script: \|\n(?:(?!      - name:)[^\n]*\n)*?            echo "Inicio verificado en Android API ' + api + r'; PID=\$PID"\n'
-              )
-              replacement = (
-                  '          script: |\n'
-                  '            bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" '
-                  '"$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-' + api + '"\n'
-              )
-              content, count = pattern.subn(lambda _: replacement, content, count=1)
-              if count != 1:
-                  raise SystemExit(f'No se pudo reemplazar el script de arranque API {api}')
-          old_options = '          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect\n'
-          new_options = '          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect\n'
-          if old_options in content:
-              if content.count(old_options) != 2:
-                  raise SystemExit('No se encontraron ambas configuraciones del emulador')
-              content = content.replace(old_options, new_options)
-          content = content.replace('          profile: pixel_2\n', '          profile: pixel_2\n          emulator-boot-timeout: 900\n')
-          trigger = '      - ".github/scripts/test-release-startup.sh"\n'
-          build_trigger = '      - ".github/workflows/build-clean-signed.yml"\n'
-          if trigger not in content and build_trigger in content:
-              content = content.replace(build_trigger, build_trigger + trigger, 1)
-          path.write_text(content)
-          print('Pruebas de arranque idempotentes y con diagnóstico de ADB separado del crash de la app.')
-          PY
-
-      - name: Confirmar la corrección en la rama de pruebas
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            "AngulismoTV-ui-estandarizado.zip" \
-            "AngulismoTV-ui-estandarizado.zip.sha256"
-          if git diff --cached --quiet; then
-            echo "La corrección ya está aplicada; no hace falta otro commit."
-          else
-            git commit -m "fix: evitar crash de inicio por inicialización temprana de Cast"
+            git commit -m "fix: evitar crash de inicio por Cast y conservar clave pública"
             git push origin "HEAD:$BRANCH"
           fi
 
