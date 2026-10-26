@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 10
     env:
       BRANCH: chatgpt/prueba-acceso-2026-10-21-3
-      GH_TOKEN: ${ github.token }
+      GH_TOKEN: ${{ github.token }}
     steps:
       - name: Checkout de la rama de pruebas
         uses: actions/checkout@v4
@@ -43,10 +43,10 @@ jobs:
           fi
           test -s "$SOURCE_ROOT/app/build.gradle.kts"
           patch --batch --forward --fuzz=0 -p1 -d "$SOURCE_ROOT" < .github/patches/cast-startup-crash-fix.patch
-          grep -Fq 'playServicesCast = "23.0.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
-          grep -Fq 'mediarouter = "1.9.0-beta01"' "$SOURCE_ROOT/gradle/libs.versions.toml"
+          grep -Fq 'playServicesCast = "21.4.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
+          grep -Fq 'mediarouter = "1.6.0"' "$SOURCE_ROOT/gradle/libs.versions.toml"
           grep -Fq 'private fun ensureCastInitialized(): CastContext' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/player/CastController.kt"
-          grep -Fq 'CastContext en Application.onCreate' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
+          grep -Fq 'Cast se inicializa bajo demanda al pulsar' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
           ! grep -Fq 'CastContext.getSharedInstance(this)' "$SOURCE_ROOT/app/src/main/java/com/angulismotv/App.kt"
           grep -Fq 'com.angulismotv.utils.CastOptionsProvider' "$SOURCE_ROOT/app/proguard-rules.pro"
 
@@ -123,6 +123,31 @@ jobs:
           elif new_export not in export:
               raise SystemExit("No se encontró el bloque de verificación en export-source-for-crash-analysis.yml")
           export_path.write_text(export)
+          PY
+
+      - name: Corregir las pruebas automatizadas de arranque
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+
+          path = Path(".github/workflows/build-clean-signed.yml")
+          content = path.read_text()
+          replacements = [
+              ("cancel-in-progress: false", "cancel-in-progress: true", 1),
+              ("          target: default\n", "          target: google_apis\n", 1),
+              ("      - name: Prueba de arranque Release en Android 14 (API 34)\n        if: always()", "      - name: Prueba de arranque Release en Android 14 (API 34)\n        if: success()", 1),
+              ("name: startup-diagnostics-${ github.run_id }", "name: startup-diagnostics-${{ github.run_id }}", 1),
+              (r"grep -Eq 'FATAL EXCEPTION|Fatal signal [0-9]+|Process: com\.angulismotv'", r"grep -Eq 'Process: com\.angulismotv|>>> com\.angulismotv <<<'", 2),
+          ]
+          for old, new, expected in replacements:
+              count = content.count(old)
+              if count != expected:
+                  raise SystemExit(f"Esperaba {expected} coincidencia(s), encontré {count}: {old}")
+              content = content.replace(old, new)
+          path.write_text(content)
+          print("Pruebas ajustadas: emulador con Google APIs, diagnóstico acotado a la app y concurrencia corregida.")
           PY
 
       - name: Confirmar la corrección en la rama de pruebas

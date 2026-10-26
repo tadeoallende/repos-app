@@ -10,29 +10,28 @@
  
  class App : Application() {
      override fun onCreate() {
-@@ -11,12 +9,8 @@
-         // La pantalla de errores corre en otro proceso: no hay que inicializar nada allí
+@@ -12,11 +10,7 @@
          if (CrashReporter.isCrashProcess()) return
          CrashReporter.install(this)
--
+ 
 -        try {
 -            val castContext = CastContext.getSharedInstance(this)
 -            Log.d("CAST", "CastContext inicializado OK: $castContext")
 -        } catch (e: Exception) {
 -            Log.e("CAST", "Error inicializando CastContext: ${e.message}", e)
 -        }
-+        // Cast se inicializa bajo demanda cuando el usuario pulsa el botón de transmitir.
-+        // Inicializar CastContext en Application.onCreate registra callbacks globales antes
-+        // de que la Activity arranque y puede hacer que un fallo interno del SDK cierre la app.
++        // Cast se inicializa bajo demanda al pulsar el botón de transmitir.
++        // No inicializar CastContext aquí: un fallo del SDK no debe impedir llegar al menú.
      }
  }
+\ No newline at end of file
 --- a/app/src/main/java/com/angulismotv/player/CastController.kt
 +++ b/app/src/main/java/com/angulismotv/player/CastController.kt
 @@ -82,35 +82,39 @@
          }
      }
  
-+    /** Prepara solo la UI; el SDK de Cast se carga al pedir explícitamente transmitir. */
++    /** Configura el botón sin cargar el SDK de Cast antes de que el usuario lo solicite. */
      fun setup(isTV: Boolean) {
          isConfigured = false
          if (isTV) {
@@ -54,6 +53,7 @@
 -                override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) {
 -                    showRoutesIfWaiting(router)
 -                }
++
 +        selector = MediaRouteSelector.Builder()
 +            .addControlCategory(CastMediaControlIntent.categoryForCast(RECEIVER_APP_ID))
 +            .build()
@@ -62,7 +62,7 @@
 +        button.setOnClickListener { onButtonClick() }
 +    }
 +
-+    /** La creación de CastContext puede registrar callbacks globales: diferirla hasta un clic real. */
++    /** Inicialieniza Cast solo tras una acción explícita de transmitir. */
 +    private fun ensureCastInitialized(): CastContext {
 +        castContext?.let { return it }
 +        val context = CastContext.getSharedInstance(activity)
@@ -95,26 +95,15 @@
 -            val context = castContext ?: CastContext.getSharedInstance(activity)
 +            val context = ensureCastInitialized()
              val session = context.sessionManager.currentCastSession
-
---- a/gradle/libs.versions.toml
-+++ b/gradle/libs.versions.toml
-@@ -12,8 +12,8 @@
- coroutines = "1.7.3"
- glide = "4.16.0"
- lifecycle = "2.7.0"
--playServicesCast = "21.4.0"
--mediarouter = "1.6.0"
-+playServicesCast = "23.0.0"
-+mediarouter = "1.9.0-beta01"
- junit = "4.13.2"
- junitExt = "1.2.1"
- espresso = "3.6.1"
+             if (session?.isConnected == true) {
+                 showConnectedSessionDialog(session)
 --- a/app/proguard-rules.pro
 +++ b/app/proguard-rules.pro
 @@ -1,3 +1,6 @@
-+# Cast SDK carga este proveedor por nombre desde el meta-data del AndroidManifest.
++# El SDK de Cast localiza este proveedor por nombre desde AndroidManifest.
 +-keep class com.angulismotv.utils.CastOptionsProvider { *; }
 +
  # Modelos que Gson (de)serializa por reflexión
  -keepclassmembers class com.angulismotv.data.ChannelRepository$* { <fields>; }
  -keep class com.angulismotv.data.ChannelFeedDataSource$* { <fields>; }
+
