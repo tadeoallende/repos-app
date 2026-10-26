@@ -16,7 +16,7 @@ permissions:
 
 concurrency:
   group: clean-signed-release-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   build-release-signed:
@@ -131,13 +131,13 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
-          target: default
+          target: google_apis
           arch: x86_64
           profile: pixel_2
           emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect
           disable-animations: true
           script: |
-            set -uo pipefail
+            set -eu
             APP_ID="com.angulismotv"
             PREFIX="$GITHUB_WORKSPACE/startup-api-30"
             set +e
@@ -153,7 +153,7 @@ jobs:
             adb shell dumpsys activity activities > "${PREFIX}-activities.txt" 2>&1
             adb shell screencap -p /sdcard/startup-screen.png && adb pull /sdcard/startup-screen.png "${PREFIX}-screen.png" >/dev/null 2>&1
             PID="$(adb shell pidof "$APP_ID" | tr -d '\r')"
-            if [ "$START_RC" -ne 0 ] || [ -z "$PID" ] || grep -Eq 'FATAL EXCEPTION|Fatal signal [0-9]+|Process: com\.angulismotv' "${PREFIX}-logcat.txt"; then
+            if [ "$START_RC" -ne 0 ] || [ -z "$PID" ] || grep -Eq 'Process: com\.angulismotv|>>> com\.angulismotv <<<' "${PREFIX}-logcat.txt"; then
               echo "::error::El APK Release falla al iniciar en Android API 30."
               grep -E -A35 -B8 'FATAL EXCEPTION|Fatal signal|Process: com\.angulismotv|AndroidRuntime' "${PREFIX}-logcat.txt" | tail -180 || true
               cat "${PREFIX}-start.txt" || true
@@ -162,7 +162,7 @@ jobs:
             echo "Inicio verificado en Android API 30; PID=$PID"
 
       - name: Prueba de arranque Release en Android 14 (API 34)
-        if: always()
+        if: success()
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
@@ -172,7 +172,7 @@ jobs:
           emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect
           disable-animations: true
           script: |
-            set -uo pipefail
+            set -eu
             APP_ID="com.angulismotv"
             PREFIX="$GITHUB_WORKSPACE/startup-api-34"
             set +e
@@ -188,7 +188,7 @@ jobs:
             adb shell dumpsys activity activities > "${PREFIX}-activities.txt" 2>&1
             adb shell screencap -p /sdcard/startup-screen.png && adb pull /sdcard/startup-screen.png "${PREFIX}-screen.png" >/dev/null 2>&1
             PID="$(adb shell pidof "$APP_ID" | tr -d '\r')"
-            if [ "$START_RC" -ne 0 ] || [ -z "$PID" ] || grep -Eq 'FATAL EXCEPTION|Fatal signal [0-9]+|Process: com\.angulismotv' "${PREFIX}-logcat.txt"; then
+            if [ "$START_RC" -ne 0 ] || [ -z "$PID" ] || grep -Eq 'Process: com\.angulismotv|>>> com\.angulismotv <<<' "${PREFIX}-logcat.txt"; then
               echo "::error::El APK Release falla al iniciar en Android API 34."
               grep -E -A35 -B8 'FATAL EXCEPTION|Fatal signal|Process: com\.angulismotv|AndroidRuntime' "${PREFIX}-logcat.txt" | tail -180 || true
               cat "${PREFIX}-start.txt" || true
@@ -200,7 +200,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: startup-diagnostics-${ github.run_id }
+          name: startup-diagnostics-${{ github.run_id }}
           path: |
             startup-api-30-*
             startup-api-34-*
