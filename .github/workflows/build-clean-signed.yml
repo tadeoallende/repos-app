@@ -178,7 +178,7 @@ jobs:
           profile: pixel_2
           emulator-boot-timeout: 900
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect
-          disable-animations: true
+          disable-animations: false
           script: |
             bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" "$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-34"
 
