@@ -67,62 +67,46 @@ jobs:
           set -euo pipefail
           python3 <<'PY'
           from pathlib import Path
+          import re
 
-          old_path = '      - "AngulismoTV-ui-estandarizado.zip"\n'
-          new_path = old_path + '      - "AngulismoTV-ui-estandarizado.zip.sha256"\n'
+          ZIP_PATH = '      - "AngulismoTV-ui-estandarizado.zip"\n'
+          SHA_PATH = ZIP_PATH + '      - "AngulismoTV-ui-estandarizado.zip.sha256"\n'
+          SOURCE_SHA = '445984424a5a1057fc308aff5622987965a35900'
 
-          build_path = Path(".github/workflows/build-clean-signed.yml")
-          build = build_path.read_text()
-          if new_path not in build:
-              if old_path not in build:
-                  raise SystemExit("No se encontró el filtro de ZIP en build-clean-signed.yml")
-              build = build.replace(old_path, new_path, 1)
+          def update(path: str, kind: str) -> None:
+              target = Path(path)
+              content = target.read_text()
+              if SHA_PATH not in content:
+                  if ZIP_PATH not in content:
+                      raise SystemExit(f"No se encontró el filtro ZIP en {path}")
+                  content = content.replace(ZIP_PATH, SHA_PATH, 1)
+              if kind == "build":
+                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          echo "SHA-256 del ZIP fuente:)', re.S)
+                  suffix = '          ZIP_SHA256="$(sha256sum "$ZIP" | awk \'{print $1}\')"\n'
+              else:
+                  pattern = re.compile(r'          EXPECTED_GIT_BLOB_SHA="[^"]+"\n.*?(?=          unzip -t "$ZIP")', re.S)
+                  suffix = ''
+              replacement = (
+                  '          test -s "$ZIP"\n'
+                  '          if [[ -s "$ZIP.sha256" ]]; then\n'
+                  '            sha256sum --check "$ZIP.sha256"\n'
+                  '          else\n'
+                  f'            EXPECTED_GIT_BLOB_SHA="{SOURCE_SHA}"\n'
+                  '            ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"\n'
+                  '            if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then\n'
+                  '              echo "::error::El ZIP no coincide con la fuente verificada."\n'
+                  '              exit 1\n'
+                  '            fi\n'
+                  '          fi\n' + suffix
+              )
+              updated, count = pattern.subn(lambda _: replacement, content, count=1)
+              if count != 1:
+                  raise SystemExit(f"No se encontró el bloque de validación esperado en {path}")
+              target.write_text(updated)
 
-          old_block = '''EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
-          test -s "$ZIP"
-          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
-          if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
-            echo "::error::El ZIP no coincide con el archivo verificado en la rama."
-            echo "Esperado Git blob: $EXPECTED_GIT_BLOB_SHA"
-            echo "Encontrado Git blob: $ACTUAL_GIT_BLOB_SHA"
-            exit 1
-          fi
-          ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
-          '''
-          new_block = '''test -s "$ZIP"
-          test -s "$ZIP.sha256"
-          sha256sum --check "$ZIP.sha256"
-          ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
-          '''
-          if old_block in build:
-              build = build.replace(old_block, new_block, 1)
-          elif new_block not in build:
-              raise SystemExit("No se encontró el bloque de verificación de ZIP esperado")
-          build_path.write_text(build)
-
-          export_path = Path(".github/workflows/export-source-for-crash-analysis.yml")
-          export = export_path.read_text()
-          if new_path not in export:
-              if old_path not in export:
-                  raise SystemExit("No se encontró el filtro de ZIP en export-source-for-crash-analysis.yml")
-              export = export.replace(old_path, new_path, 1)
-
-          old_export = '''EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
-          test -s "$ZIP"
-          ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
-          test "$ACTUAL_GIT_BLOB_SHA" = "$EXPECTED_GIT_BLOB_SHA"
-          unzip -t "$ZIP" | tail -n 2
-          '''
-          new_export = '''test -s "$ZIP"
-          test -s "$ZIP.sha256"
-          sha256sum --check "$ZIP.sha256"
-          unzip -t "$ZIP" | tail -n 2
-          '''
-          if old_export in export:
-              export = export.replace(old_export, new_export, 1)
-          elif new_export not in export:
-              raise SystemExit("No se encontró el bloque de verificación en export-source-for-crash-analysis.yml")
-          export_path.write_text(export)
+          update('.github/workflows/build-clean-signed.yml', 'build')
+          update('.github/workflows/export-source-for-crash-analysis.yml', 'export')
+          print('Validación de fuente adaptada a SHA-256 tras la corrección del ZIP.')
           PY
 
       - name: Corregir las pruebas automatizadas de arranque
@@ -131,23 +115,36 @@ jobs:
           set -euo pipefail
           python3 <<'PY'
           from pathlib import Path
+          import re
 
-          path = Path(".github/workflows/build-clean-signed.yml")
+          path = Path('.github/workflows/build-clean-signed.yml')
           content = path.read_text()
-          replacements = [
-              ("cancel-in-progress: false", "cancel-in-progress: true", 1),
-              ("          target: default\n", "          target: google_apis\n", 1),
-              ("      - name: Prueba de arranque Release en Android 14 (API 34)\n        if: always()", "      - name: Prueba de arranque Release en Android 14 (API 34)\n        if: success()", 1),
-              ("name: startup-diagnostics-${ github.run_id }", "name: startup-diagnostics-${{ github.run_id }}", 1),
-              (r"grep -Eq 'FATAL EXCEPTION|Fatal signal [0-9]+|Process: com\.angulismotv'", r"grep -Eq 'Process: com\.angulismotv|>>> com\.angulismotv <<<'", 2),
-          ]
-          for old, new, expected in replacements:
-              count = content.count(old)
-              if count != expected:
-                  raise SystemExit(f"Esperaba {expected} coincidencia(s), encontré {count}: {old}")
-              content = content.replace(old, new)
+          for api in ('30', '34'):
+              pattern = re.compile(
+                  r'          script: \|\n(?:(?!      - name:)[^\n]*\n)*?            echo "Inicio verificado en Android API ' + api + r'; PID=\$PID"\n'
+              )
+              replacement = (
+                  '          script: |\n'
+                  '            bash "$GITHUB_WORKSPACE/.github/scripts/test-release-startup.sh" '
+                  '"$GITHUB_WORKSPACE/AngulismoTV-release-firmado.apk" "com.angulismotv" "startup-api-' + api + '"\n'
+              )
+              content, count = pattern.subn(lambda _: replacement, content, count=1)
+              if count != 1:
+                  raise SystemExit(f'No se pudo reemplazar el script de arranque API {api}')
+          old_options = '          emulator-options: -no-window -no-audio -no-boot-anim -camera-back none -gpu swiftshader_indirect\n'
+          new_options = '          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect\n'
+          if content.count(old_options) != 2:
+              raise SystemExit('No se encontraron ambas configuraciones del emulador')
+          content = content.replace(old_options, new_options)
+          content = content.replace('          profile: pixel_2\n', '          profile: pixel_2\n          emulator-boot-timeout: 900\n')
+          trigger = '      - ".github/scripts/test-release-startup.sh"\n'
+          build_trigger = '      - ".github/workflows/build-clean-signed.yml"\n'
+          if trigger not in content:
+              if build_trigger not in content:
+                  raise SystemExit('No se encontró la sección paths del workflow de Release')
+              content = content.replace(build_trigger, build_trigger + trigger, 1)
           path.write_text(content)
-          print("Pruebas ajustadas: emulador con Google APIs, diagnóstico acotado a la app y concurrencia corregida.")
+          print('Pruebas de arranque llaman a un script Bash comprobable y capturan errores del dispositivo.')
           PY
 
       - name: Confirmar la corrección en la rama de pruebas
@@ -159,6 +156,7 @@ jobs:
           git add \
             "AngulismoTV-ui-estandarizado.zip" \
             "AngulismoTV-ui-estandarizado.zip.sha256" \
+            ".github/scripts/test-release-startup.sh" \
             ".github/workflows/build-clean-signed.yml" \
             ".github/workflows/export-source-for-crash-analysis.yml"
           if git diff --cached --quiet; then
@@ -168,9 +166,8 @@ jobs:
             git push origin "HEAD:$BRANCH"
           fi
 
-      - name: Lanzar Release firmado con pruebas de arranque
+      - name: Confirmar activación del build de Release
         shell: bash
         run: |
           set -euo pipefail
-          gh workflow run build-clean-signed.yml --ref "$BRANCH"
-          echo "Se despachó un nuevo build Release firmado de la fuente corregida."
+          echo "El commit con la fuente corregida activa build-clean-signed.yml mediante el cambio de ZIP y checksum."
