@@ -1,0 +1,97 @@
+--- a/app/src/main/java/com/angulismotv/App.kt
++++ b/app/src/main/java/com/angulismotv/App.kt
+@@ -1,9 +1,7 @@
+ package com.angulismotv
+ 
+ import android.app.Application
+-import android.util.Log
+ import com.angulismotv.utils.CrashReporter
+-import com.google.android.gms.cast.framework.CastContext
+ 
+ class App : Application() {
+     override fun onCreate() {
+@@ -11,12 +9,8 @@
+         // La pantalla de errores corre en otro proceso: no hay que inicializar nada allí
+         if (CrashReporter.isCrashProcess()) return
+         CrashReporter.install(this)
+-
+-        try {
+-            val castContext = CastContext.getSharedInstance(this)
+-            Log.d("CAST", "CastContext inicializado OK: $castContext")
+-        } catch (e: Exception) {
+-            Log.e("CAST", "Error inicializando CastContext: ${e.message}", e)
+-        }
++        // Cast se inicializa bajo demanda cuando el usuario pulsa el botón de transmitir.
++        // Inicializar CastContext en Application.onCreate registra callbacks globales antes
++        // de que la Activity arranque y puede hacer que un fallo interno del SDK cierre la app.
+     }
+ }
+--- a/app/src/main/java/com/angulismotv/player/CastController.kt
++++ b/app/src/main/java/com/angulismotv/player/CastController.kt
+@@ -82,35 +82,39 @@
+         }
+     }
+ 
++    /** Prepara solo la UI; el SDK de Cast se carga al pedir explícitamente transmitir. */
+     fun setup(isTV: Boolean) {
+         isConfigured = false
+         if (isTV) {
+             button.visibility = View.GONE
++            button.setOnClickListener(null)
+             return
+         }
+-        try {
+-            castContext = CastContext.getSharedInstance(activity)
+-            selector = MediaRouteSelector.Builder()
+-                .addControlCategory(CastMediaControlIntent.categoryForCast(RECEIVER_APP_ID))
+-                .build()
+-            router = MediaRouter.getInstance(activity)
+-            routerCallback = object : MediaRouter.Callback() {
+-                override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) {
+-                    showRoutesIfWaiting(router)
+-                }
+-
+-                override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) {
+-                    showRoutesIfWaiting(router)
+-                }
++        selector = MediaRouteSelector.Builder()
++            .addControlCategory(CastMediaControlIntent.categoryForCast(RECEIVER_APP_ID))
++            .build()
++        isConfigured = true
++        button.visibility = View.VISIBLE
++        button.setOnClickListener { onButtonClick() }
++    }
++
++    /** La creación de CastContext puede registrar callbacks globales: diferirla hasta un clic real. */
++    private fun ensureCastInitialized(): CastContext {
++        castContext?.let { return it }
++        val context = CastContext.getSharedInstance(activity)
++        castContext = context
++        router = MediaRouter.getInstance(activity)
++        routerCallback = object : MediaRouter.Callback() {
++            override fun onRouteAdded(router: MediaRouter, route: MediaRouter.RouteInfo) {
++                showRoutesIfWaiting(router)
++            }
++
++            override fun onRouteChanged(router: MediaRouter, route: MediaRouter.RouteInfo) {
++                showRoutesIfWaiting(router)
+             }
+-            isConfigured = true
+-            button.visibility = View.VISIBLE
+-            button.setOnClickListener { onButtonClick() }
+-        } catch (e: Exception) {
+-            isConfigured = false
+-            button.visibility = View.GONE
+-            android.util.Log.w(TAG, "No se pudo inicializar Google Cast", e)
+         }
++        return context
+     }
+ 
+     fun startDiscovery() {
+@@ -181,7 +185,7 @@
+     private fun onButtonClick() {
+         if (!isConfigured || activity.isFinishing || activity.isDestroyed) return
+         try {
+-            val context = castContext ?: CastContext.getSharedInstance(activity)
++            val context = ensureCastInitialized()
+             val session = context.sessionManager.currentCastSession
