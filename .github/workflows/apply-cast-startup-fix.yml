@@ -78,7 +78,7 @@ jobs:
                   raise SystemExit("No se encontró el filtro de ZIP en build-clean-signed.yml")
               build = build.replace(old_path, new_path, 1)
 
-          old_block = '''          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+          old_block = '''EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
           test -s "$ZIP"
           ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
           if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
@@ -89,7 +89,7 @@ jobs:
           fi
           ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
           '''
-          new_block = '''          test -s "$ZIP"
+          new_block = '''test -s "$ZIP"
           test -s "$ZIP.sha256"
           sha256sum --check "$ZIP.sha256"
           ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
@@ -107,13 +107,13 @@ jobs:
                   raise SystemExit("No se encontró el filtro de ZIP en export-source-for-crash-analysis.yml")
               export = export.replace(old_path, new_path, 1)
 
-          old_export = '''          EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
+          old_export = '''EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
           test -s "$ZIP"
           ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
           test "$ACTUAL_GIT_BLOB_SHA" = "$EXPECTED_GIT_BLOB_SHA"
           unzip -t "$ZIP" | tail -n 2
           '''
-          new_export = '''          test -s "$ZIP"
+          new_export = '''test -s "$ZIP"
           test -s "$ZIP.sha256"
           sha256sum --check "$ZIP.sha256"
           unzip -t "$ZIP" | tail -n 2
