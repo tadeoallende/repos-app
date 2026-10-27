@@ -419,6 +419,8 @@ jobs:
     needs: [build, probar-en-emulador, probar-release-firmado, probar-release-en-android-tv]
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: apk-debug
