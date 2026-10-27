@@ -73,6 +73,27 @@ jobs:
               raise SystemExit("No se encontró la declaración esperada de resetAutoHideTimer; se detiene el build.")
           PY
 
+      - name: Preservar TypeToken de Gson al minificar release
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("app/proguard-rules.pro")
+          text = path.read_text(encoding="utf-8") if path.exists() else ""
+          required = [
+              "-keepattributes Signature",
+              "-keep class com.google.gson.reflect.TypeToken { *; }",
+              "-keep class * extends com.google.gson.reflect.TypeToken { *; }",
+          ]
+          missing = [rule for rule in required if rule not in text]
+          if missing:
+              text = text.rstrip() + "\n\n# Gson usa firmas genéricas en TypeToken; R8 debe conservarlas.\n"
+              text += "\n".join(missing) + "\n"
+              path.write_text(text, encoding="utf-8")
+          print("Reglas R8 de Gson verificadas:", ", ".join(required))
+          PY
+
       - name: Preparar firma Android release
         id: release_signing
         run: |
