@@ -88,8 +88,7 @@ jobs:
           rm -f "$SOURCE_ZIP"
           (
             cd "$PROJECT_DIR"
-            find . -type d \\( -name build -o -name .gradle -o -name .kotlin -o -name .git -o -name .idea \\) -prune -o -type f -print \\
-              | sed 's#^\\./##' | LC_ALL=C sort | zip -q "$GITHUB_WORKSPACE/$SOURCE_ZIP" -@
+            find . -type d -name build -prune -o -type d -name .gradle -prune -o -type d -name .kotlin -prune -o -type d -name .git -prune -o -type d -name .idea -prune -o -type f -print | sed 's#^./##' | LC_ALL=C sort | zip -q "$GITHUB_WORKSPACE/$SOURCE_ZIP" -@
           )
           ZIP_SIZE="$(stat -c%s "$SOURCE_ZIP")"
           echo "ZIP corregido: $ZIP_SIZE bytes"
