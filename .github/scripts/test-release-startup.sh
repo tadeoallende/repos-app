@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 # El build-clean-signed workflow aplica antes el fix tipado de controlsVisibility;
 # este script diagnostica el arranque del APK resultante sin confundir ADB offline con crash.
+# Mantener diagnóstico independiente de la inferencia Kotlin y conservar trazas compactas.
 
 APK="${1:?Uso: test-release-startup.sh APK APP_ID PREFIX}"
 APP_ID="${2:?Falta el identificador de la aplicación}"
