@@ -30,6 +30,7 @@ jobs:
           unzip -q -o "$ZIP" -d proyecto
           SETTINGS="$(find proyecto -name settings.gradle.kts | head -1)"
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
+          echo "SOURCE_ZIP=$ZIP" >> "$GITHUB_ENV"
 
       - uses: actions/setup-java@v4
         with:
@@ -46,6 +47,27 @@ jobs:
         with:
           build-root-directory: ${{ env.PROJECT_DIR }}
 
+      - name: Corregir inferencia del temporizador de controles
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt")
+          text = source.read_text(encoding="utf-8")
+          old = "    private fun resetAutoHideTimer() = controlsVisibility.resetAutoHide()"
+          new = "    private fun resetAutoHideTimer(): Unit {\n        controlsVisibility.resetAutoHide()\n    }"
+
+          if old in text:
+              text = text.replace(old, new, 1)
+              source.write_text(text, encoding="utf-8")
+              print("Corrección aplicada: tipo de retorno explícito para resetAutoHideTimer().")
+          elif new in text:
+              print("La corrección ya está presente.")
+          else:
+              raise SystemExit("No se encontró la declaración esperada de resetAutoHideTimer; se detiene el build.")
+          PY
+
       - name: Compilar debug
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -58,6 +80,20 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+
+      - name: Actualizar el ZIP con la corrección verificada
+        if: success()
+        run: |
+          test -n "$SOURCE_ZIP"
+          rm -f "$SOURCE_ZIP"
+          (cd "$PROJECT_DIR" && zip -qr "$GITHUB_WORKSPACE/$SOURCE_ZIP" .)
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "$SOURCE_ZIP"
+          if ! git diff --cached --quiet; then
+            git commit -m "fix: resolve Kotlin auto-hide timer compilation [skip ci]"
+            git push origin "HEAD:$GITHUB_REF_NAME"
+          fi
 
       - name: Guardar APK para las pruebas
         uses: actions/upload-artifact@v4
