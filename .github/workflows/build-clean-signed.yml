@@ -8,6 +8,7 @@ on:
       - chatgpt/prueba-acceso-2026-10-21-3
     paths:
       - ".github/scripts/test-release-startup.sh"
+      - "AngulismoTV-completo-etapa5.zip"
       - "AngulismoTV-ui-estandarizado.zip"
       - "AngulismoTV-ui-estandarizado.zip.sha256"
   workflow_dispatch:
@@ -40,17 +41,24 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="AngulismoTV-ui-estandarizado.zip"
+          # Priorizar el ZIP que acaba de entregar el usuario; conservar el anterior como fallback.
+          if [[ -s "AngulismoTV-completo-etapa5.zip" ]]; then
+            ZIP="AngulismoTV-completo-etapa5.zip"
+          else
+            ZIP="AngulismoTV-ui-estandarizado.zip"
+          fi
           test -s "$ZIP"
           if [[ -s "$ZIP.sha256" ]]; then
             sha256sum --check "$ZIP.sha256"
-          else
+          elif [[ "$ZIP" == "AngulismoTV-ui-estandarizado.zip" ]]; then
             EXPECTED_GIT_BLOB_SHA="445984424a5a1057fc308aff5622987965a35900"
             ACTUAL_GIT_BLOB_SHA="$(git hash-object -- "$ZIP")"
             if [[ "$ACTUAL_GIT_BLOB_SHA" != "$EXPECTED_GIT_BLOB_SHA" ]]; then
-              echo "::error::El ZIP no coincide con la fuente verificada."
+              echo "::error::El ZIP anterior no coincide con la fuente verificada."
               exit 1
             fi
+          else
+            echo "::notice::No se incluyó checksum externo para el ZIP etapa 5; se calculará SHA-256 del archivo subido."
           fi
           ZIP_SHA256="$(sha256sum "$ZIP" | awk '{print $1}')"
           echo "SHA-256 del ZIP fuente: $ZIP_SHA256"
