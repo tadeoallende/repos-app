@@ -974,9 +974,9 @@
           "drmKey": null
         },
         {
-          "name": "Reproductor 2 (WebView)",
-          "iframe": "https://bantel-cdn1.iptvperu.tv:1936/btnscrtn/espn_premium.stream/playlist.m3u8",
-          "streamType": "iframe",
+          "name": "Reproductor 2",
+          "iframe": "https://liveassets-uvod-live-encoder-assets-1-static-2.encoders.immergo.tv/b0548627-abf8-4b2a-b31d-b183a8abea0e/d0408e5e-3543-49be-b087-7ec175311fa1/1/streamPlaylist-live.m3u8",
+          "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
