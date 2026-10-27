@@ -8,10 +8,9 @@
              cancel = { task -> mainHandler.removeCallbacks(task) },
              isSidePanelOpen = { sidePanel.isOpen },
              onReveal = ::applyControlsReveal,
--            onHide = ::applyControlsHide
-+            onHide = ::applyControlsHide
-+        )
-+    }
+             onHide = ::applyControlsHide
+         )
+     }
 @@ -1342,1 +1342,3 @@
 -    private fun resetAutoHideTimer() = controlsVisibility.resetAutoHide()
 +    private fun resetAutoHideTimer() {
