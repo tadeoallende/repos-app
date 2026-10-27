@@ -161,23 +161,6 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publicar APK firmado y APK de prueba en Releases
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          RELEASE_APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
-          DEBUG_APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$RELEASE_APK"
-          test -s "$DEBUG_APK"
-          gh release create "build-${{ github.run_number }}" \
-            "$RELEASE_APK#app-release.apk" \
-            "$DEBUG_APK#app-debug.apk" \
-            --target "$GITHUB_SHA" \
-            --title "AngulismoTV build ${{ github.run_number }} (APK firmado)" \
-            --notes "app-release.apk está firmado con el keystore Android configurado y fue verificado con apksigner. app-debug.apk es solo para pruebas. El manifiesto de actualización y su firma no se alteraron; se deben regenerar por separado cuando se apruebe el APK." \
-            --prerelease
-
       - name: Resumen de errores
         if: failure()
         run: |
@@ -263,3 +246,179 @@ jobs:
             full.log
             screen.png
           if-no-files-found: ignore
+
+  # Probar la variante de distribución firmada, no solamente el APK debug.
+  probar-release-firmado:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [30, 34]
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-release-signed
+          path: apk-release
+
+      - name: Habilitar aceleración (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "SIN KVM: el emulador puede tardar mucho"
+
+      - name: Preparar prueba del APK release firmado
+        run: |
+          cat > prueba-release.sh <<'SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          adb install -r apk-release/app-release.apk
+          adb logcat -c
+          adb shell am start -W -n com.angulismotv/.MainActivity
+          sleep 25
+          adb logcat -d > full-release.log
+          adb exec-out screencap -p > screen-release.png
+          adb shell pidof com.angulismotv > pid-release.txt || true
+          if [ ! -s pid-release.txt ]; then
+            echo "::error::El APK release firmado no sigue abierto en Android API ${{ matrix.api }}."
+            grep -A30 "FATAL EXCEPTION" full-release.log | head -80 || true
+            exit 1
+          fi
+          if grep -q "FATAL EXCEPTION" full-release.log; then
+            echo "::error::Se detectó una excepción fatal con el APK release en Android API ${{ matrix.api }}."
+            grep -A30 "FATAL EXCEPTION" full-release.log | head -80 || true
+            exit 1
+          fi
+          SCRIPT
+
+      - name: Ejecutar APK release firmado en emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          profile: pixel_5
+          disable-animations: true
+          script: bash prueba-release.sh
+
+      - name: Resumen de prueba release
+        if: always()
+        run: |
+          {
+            echo "## APK release firmado — Android API ${{ matrix.api }}"
+            if [ -s pid-release.txt ]; then
+              echo "La app siguió abierta después de 25 segundos."
+            else
+              echo "La app no quedó abierta; revisar el log."
+            fi
+            echo '### Excepciones'
+            echo '```'
+            grep -A30 "FATAL EXCEPTION" full-release.log | head -80 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Guardar log y captura de release
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-release-api-${{ matrix.api }}
+          path: |
+            full-release.log
+            screen-release.png
+            pid-release.txt
+          if-no-files-found: ignore
+
+  probar-release-en-android-tv:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-release-signed
+          path: apk-release
+
+      - name: Habilitar aceleración (KVM)
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "SIN KVM: el emulador puede tardar mucho"
+
+      - name: Preparar prueba Android TV release
+        run: |
+          cat > prueba-tv-release.sh <<'SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          adb install -r apk-release/app-release.apk
+          adb shell pm list features > features-tv.txt
+          grep -q 'android.software.leanback' features-tv.txt || { echo "::error::El emulador no expone Android TV/Leanback."; exit 1; }
+          adb logcat -c
+          adb shell am start -W -n com.angulismotv/.MainActivity
+          sleep 25
+          adb logcat -d > full-tv-release.log
+          adb exec-out screencap -p > screen-tv-release.png
+          adb shell pidof com.angulismotv > pid-tv-release.txt || true
+          if [ ! -s pid-tv-release.txt ] || grep -q "FATAL EXCEPTION" full-tv-release.log; then
+            echo "::error::El APK release firmado falló en la prueba de apertura Android TV."
+            grep -A30 "FATAL EXCEPTION" full-tv-release.log | head -80 || true
+            exit 1
+          fi
+          SCRIPT
+
+      - name: Ejecutar APK release firmado en Android TV
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: android-tv
+          arch: x86
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          script: bash prueba-tv-release.sh
+
+      - name: Guardar log y captura Android TV release
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prueba-release-android-tv
+          path: |
+            full-tv-release.log
+            screen-tv-release.png
+            features-tv.txt
+            pid-tv-release.txt
+          if-no-files-found: ignore
+
+  # La release pública solo se publica cuando pasan la compilación y las pruebas
+  # de arranque de debug y release firmado en móviles y Android TV.
+  publicar-release:
+    needs: [build, probar-en-emulador, probar-release-firmado, probar-release-en-android-tv]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-debug
+          path: apk-debug
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: apk-release-signed
+          path: apk-release
+
+      - name: Publicar APK firmado y APK de prueba
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -s apk-release/app-release.apk
+          test -s apk-debug/app-debug.apk
+          gh release create "build-${{ github.run_number }}" \
+            "apk-release/app-release.apk#app-release.apk" \
+            "apk-debug/app-debug.apk#app-debug.apk" \
+            --target "$GITHUB_SHA" \
+            --title "AngulismoTV build ${{ github.run_number }} (APK firmado verificado)" \
+            --notes "app-release.apk está firmado con el keystore Android configurado, verificado con apksigner y probado en emuladores Android 11, Android 14 y Android TV. app-debug.apk es solo para pruebas. El manifiesto de actualización y su firma se mantienen sin cambios hasta aprobar y publicar la URL definitiva del APK." \
+            --prerelease
