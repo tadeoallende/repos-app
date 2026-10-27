@@ -71,7 +71,18 @@ jobs:
           test -x "$PROJECT_DIR/gradlew" || chmod +x "$PROJECT_DIR/gradlew"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "ZIP_SHA256=$ZIP_SHA256" >> "$GITHUB_ENV"
-          echo "Se compilará únicamente el ZIP limpio verificado; no se aplican parches."
+          echo "Se compilará el ZIP verificado con una corrección Kotlin mínima y versionada para resolver la inferencia recursiva de controlsVisibility."
+
+      - name: Aplicar corrección Kotlin de inferencia recursiva
+        shell: bash
+        run: |
+          set -euo pipefail
+          PATCH="$GITHUB_WORKSPACE/.github/patches/fix-controls-visibility-inference.patch"
+          test -s "$PATCH"
+          patch --dry-run -p1 -d "$PROJECT_DIR" < "$PATCH"
+          patch -p1 -d "$PROJECT_DIR" < "$PATCH"
+          grep -F 'private val controlsVisibility: PlayerControlsVisibilityController by lazy' "$PROJECT_DIR/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
+          grep -F 'controlsVisibility.resetAutoHide()' "$PROJECT_DIR/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt"
 
       - name: Preparar Java 17
         uses: actions/setup-java@v4
@@ -160,7 +171,7 @@ jobs:
             echo "- [Descargar APK firmado (candidato)]($APK_URL)"
             echo "- Etiqueta de release: $TAG"
             echo "- SHA-256 del ZIP fuente: $ZIP_SHA256"
-            echo "- La compilación y la firma fueron verificadas con apksigner; la prueba de arranque se ejecuta por separado y su resultado está en el workflow."
+            echo "- La compilación aplica el parche Kotlin versionado para inferencia de tipo. La firma se verifica con apksigner; el resultado de arranque está en el workflow."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Prueba de arranque Release en Android 11 (API 30)
