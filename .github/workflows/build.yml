@@ -19,6 +19,11 @@ jobs:
       ORG_GRADLE_PROJECT_EVENTS_URL: ${{ secrets.EVENTS_URL }}
       ORG_GRADLE_PROJECT_UPDATE_URL: ${{ secrets.UPDATE_URL }}
       ORG_GRADLE_PROJECT_WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
+      # Firma Android del APK; distinta de UPDATE_PRIVATE_KEY_PEM, que firma el manifiesto.
+      ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+      ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+      ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
 
     steps:
       - uses: actions/checkout@v4
@@ -68,6 +73,29 @@ jobs:
               raise SystemExit("No se encontró la declaración esperada de resetAutoHideTimer; se detiene el build.")
           PY
 
+      - name: Preparar firma Android release
+        id: release_signing
+        run: |
+          set -euo pipefail
+          if [ -z "${ANDROID_RELEASE_KEYSTORE_BASE64:-}" ] ||
+             [ -z "${ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD:-}" ] ||
+             [ -z "${ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS:-}" ] ||
+             [ -z "${ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD:-}" ]; then
+            echo "::error::Faltan secretos de firma Android. Revisá ANDROID_RELEASE_KEYSTORE_BASE64, ANDROID_RELEASE_STORE_PASSWORD, ANDROID_RELEASE_KEY_ALIAS y ANDROID_RELEASE_KEY_PASSWORD."
+            exit 1
+          fi
+
+          KEYSTORE_PATH="$RUNNER_TEMP/angulismotv-release.jks"
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+          keytool -list -keystore "$KEYSTORE_PATH" \
+            -storepass "$ORG_GRADLE_PROJECT_RELEASE_STORE_PASSWORD" \
+            -alias "$ORG_GRADLE_PROJECT_RELEASE_KEY_ALIAS" >/dev/null
+
+          echo "ORG_GRADLE_PROJECT_RELEASE_STORE_FILE=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "enabled=true" >> "$GITHUB_OUTPUT"
+          echo "Keystore y alias verificados; no se imprimen credenciales."
+
       - name: Compilar debug
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
@@ -80,6 +108,19 @@ jobs:
         run: |
           set -o pipefail
           ./gradlew assembleRelease --stacktrace 2>&1 | tee -a "$GITHUB_WORKSPACE/build.log"
+
+      - name: Verificar APK release firmado
+        if: ${{ steps.release_signing.outputs.enabled == 'true' }}
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK" || { echo "::error::No se generó el APK release."; exit 1; }
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner -type f | sort -V | tail -1)"
+          test -n "$APKSIGNER" || { echo "::error::No se encontró apksigner."; exit 1; }
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          echo "APK release firmado y verificado con apksigner."
+
 
       - name: Actualizar el ZIP con la corrección verificada
         if: success()
@@ -111,14 +152,30 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
 
-      - name: Publicar APK en Releases
+      - name: Guardar APK release firmado
+        if: ${{ steps.release_signing.outputs.enabled == 'true' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk-release-signed
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publicar APK firmado y APK de prueba en Releases
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          APK="$(find "$PROJECT_DIR" -path '*outputs/apk/debug/*.apk' | head -1)"
-          gh release create "build-${{ github.run_number }}" "$APK" \
-            --title "Build ${{ github.run_number }}" \
-            --notes "APK debug generado automáticamente." \
+          set -euo pipefail
+          RELEASE_APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+          DEBUG_APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$RELEASE_APK"
+          test -s "$DEBUG_APK"
+          gh release create "build-${{ github.run_number }}" \
+            "$RELEASE_APK#app-release.apk" \
+            "$DEBUG_APK#app-debug.apk" \
+            --target "$GITHUB_SHA" \
+            --title "AngulismoTV build ${{ github.run_number }} (APK firmado)" \
+            --notes "app-release.apk está firmado con el keystore Android configurado y fue verificado con apksigner. app-debug.apk es solo para pruebas. El manifiesto de actualización y su firma no se alteraron; se deben regenerar por separado cuando se apruebe el APK." \
             --prerelease
 
       - name: Resumen de errores
