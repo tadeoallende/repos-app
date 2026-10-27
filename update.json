@@ -1,8 +1,8 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
-  "apkUrl": "https://github.com/tadeoallende/repos-app/releases/download/build-76/app-debug.apk",
-  "sha256": "bd353a77f9712426d5c2e0abf3dfe762b7070cfde2742c75bf6bc79beec381e1",
+  "versionCode": 7,
+  "versionName": "1.6",
+  "apkUrl": "https://github.com/tadeoallende/repos-app/releases/download/build-297/app-release.apk",
+  "sha256": "da0ee9ddbd2b5e53d09f9f5f3fbadb51dbca112159a7d3aaa820cbd6990ae0ea",
   "releaseNotes": "Mejoras y correcciones.",
   "forceUpdate": false
 }
