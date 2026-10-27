@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# El build-clean-signed workflow aplica antes el fix tipado de controlsVisibility;
+# este script diagnostica el arranque del APK resultante sin confundir ADB offline con crash.
+
 APK="${1:?Uso: test-release-startup.sh APK APP_ID PREFIX}"
 APP_ID="${2:?Falta el identificador de la aplicación}"
 NAME="${3:?Falta el prefijo de diagnóstico}"
