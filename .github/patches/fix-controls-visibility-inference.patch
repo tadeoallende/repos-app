@@ -1,0 +1,10 @@
+--- a/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt
++++ b/app/src/main/java/com/angulismotv/UnifiedPlayerActivity.kt
+@@
+-    private val controlsVisibility by lazy(LazyThreadSafetyMode.NONE) {
++    private val controlsVisibility: PlayerControlsVisibilityController by lazy(LazyThreadSafetyMode.NONE) {
+@@
+-    private fun resetAutoHideTimer() = controlsVisibility.resetAutoHide()
++    private fun resetAutoHideTimer() {
++        controlsVisibility.resetAutoHide()
++    }
