@@ -86,7 +86,17 @@ jobs:
         run: |
           test -n "$SOURCE_ZIP"
           rm -f "$SOURCE_ZIP"
-          (cd "$PROJECT_DIR" && zip -qr "$GITHUB_WORKSPACE/$SOURCE_ZIP" .)
+          (
+            cd "$PROJECT_DIR"
+            find . -type d \\( -name build -o -name .gradle -o -name .kotlin -o -name .git -o -name .idea \\) -prune -o -type f -print \\
+              | sed 's#^\\./##' | LC_ALL=C sort | zip -q "$GITHUB_WORKSPACE/$SOURCE_ZIP" -@
+          )
+          ZIP_SIZE="$(stat -c%s "$SOURCE_ZIP")"
+          echo "ZIP corregido: $ZIP_SIZE bytes"
+          if [ "$ZIP_SIZE" -gt 10000000 ]; then
+            echo "El ZIP supera 10 MB; probablemente incluye archivos generados." >&2
+            exit 1
+          fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "$SOURCE_ZIP"
