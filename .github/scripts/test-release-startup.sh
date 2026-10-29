@@ -14,7 +14,7 @@ mkdir -p "$WORKSPACE"
 
 fail() {
   echo "::error::$1"
-  for file in "${PREFIX}-device.txt" "${PREFIX}-install.txt" "${PREFIX}-start.txt" "${PREFIX}-logcat.txt"; do
+  for file in "${PREFIX}-device.txt" "${PREFIX}-install.txt" "${PREFIX}-package.txt" "${PREFIX}-start.txt" "${PREFIX}-logcat.txt"; do
     if [[ -s "$file" ]]; then
       echo "----- $file -----"
       tail -n 180 "$file" || true
@@ -48,10 +48,16 @@ if ! timeout 120s adb install -r "$APK" > "${PREFIX}-install.txt" 2>&1; then
   fail "No se pudo instalar el APK en el emulador; revisar el log de instalación."
 fi
 
+# Verify package installation separately, then launch the known manifest activity explicitly.
+adb shell pm path "$APP_ID" > "${PREFIX}-package.txt" 2>&1 || true
+if ! grep -q '^package:' "${PREFIX}-package.txt"; then
+  fail "El APK se instaló, pero Android no encuentra el paquete $APP_ID."
+fi
+
 adb logcat -c
 adb shell am force-stop "$APP_ID" >/dev/null 2>&1 || true
 START_RC=0
-timeout 45s adb shell am start -W -a android.intent.action.MAIN -c android.intent.category.LAUNCHER -p "$APP_ID" > "${PREFIX}-start.txt" 2>&1 || START_RC=$?
+timeout 45s adb shell am start -W -n "$APP_ID/.MainActivity" > "${PREFIX}-start.txt" 2>&1 || START_RC=$?
 sleep 12
 adb logcat -d -v threadtime > "${PREFIX}-logcat.txt" 2>&1 || true
 adb shell dumpsys activity activities > "${PREFIX}-activities.txt" 2>&1 || true
