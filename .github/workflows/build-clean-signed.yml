@@ -215,13 +215,22 @@ jobs:
             echo "- La firma se verifica con apksigner; el resultado de arranque está en el workflow."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Habilitar acceso KVM para pruebas de arranque
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm || echo "::warning::No hay /dev/kvm; el emulador podría ser lento o inestable."
+
       - name: Prueba de arranque Release en Android 11 (API 30)
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
           target: google_apis
           arch: x86_64
-          profile: pixel_2
+          profile: pixel_5
           emulator-boot-timeout: 900
           emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -wipe-data -camera-back none -gpu swiftshader_indirect
           disable-animations: false
