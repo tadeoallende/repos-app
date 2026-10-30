@@ -10,7 +10,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: canalestv-build-${ github.ref }}
+  group: canalestv-build-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   build:
@@ -48,16 +48,19 @@ jobs:
       - name: Compilar APK debug
         shell: bash
         run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/canalestv"
           ./gradlew assembleDebug --stacktrace
       - name: Verificar compilación release
         shell: bash
         run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/canalestv"
           ./gradlew assembleRelease --stacktrace
       - name: Calcular SHA-256
         shell: bash
         run: |
+          set -euo pipefail
           cd "$RUNNER_TEMP/canalestv/app/build/outputs/apk/debug"
           sha256sum *.apk > SHA256SUMS.txt
       - name: Subir APK debug
@@ -65,8 +68,8 @@ jobs:
         with:
           name: CanalesTV-debug
           path: |
-            ${ runner.temp }}/canalestv/app/build/outputs/apk/debug/*.apk
-            ${ runner.temp }}/canalestv/app/build/outputs/apk/debug/SHA256SUMS.txt
+            ${{ runner.temp }}/canalestv/app/build/outputs/apk/debug/*.apk
+            ${{ runner.temp }}/canalestv/app/build/outputs/apk/debug/SHA256SUMS.txt
           if-no-files-found: error
       - name: Subir reportes si falla
         if: failure()
@@ -74,6 +77,6 @@ jobs:
         with:
           name: CanalesTV-reportes-build
           path: |
-            ${ runner.temp }}/canalestv/app/build/reports/
-            ${ runner.temp }}/canalestv/app/build/outputs/logs/
+            ${{ runner.temp }}/canalestv/app/build/reports/
+            ${{ runner.temp }}/canalestv/app/build/outputs/logs/
           if-no-files-found: ignore
