@@ -1,0 +1,79 @@
+name: Build CanalesTV (rama aislada)
+on:
+  push:
+    branches:
+      - chatgpt/canalestv-prueba-2026-10-30
+    paths:
+      - "CanalesTV-fuentes.zip"
+      - ".github/workflows/build-canalestv.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: canalestv-build-${ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout de la rama de prueba
+        uses: actions/checkout@v4
+      - name: Verificar y extraer fuentes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s CanalesTV-fuentes.zip
+          mkdir -p "$RUNNER_TEMP/canalestv"
+          unzip -q CanalesTV-fuentes.zip -d "$RUNNER_TEMP/canalestv"
+          test -s "$RUNNER_TEMP/canalestv/gradlew"
+          test -s "$RUNNER_TEMP/canalestv/settings.gradle.kts"
+          test -s "$RUNNER_TEMP/canalestv/app/build.gradle.kts"
+      - name: JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Gradle con caché
+        uses: gradle/actions/setup-gradle@v4
+      - name: Ejecutar pruebas unitarias
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$RUNNER_TEMP/canalestv"
+          chmod +x gradlew
+          ./gradlew testDebugUnitTest --stacktrace
+      - name: Compilar APK debug
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/canalestv"
+          ./gradlew assembleDebug --stacktrace
+      - name: Verificar compilación release
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/canalestv"
+          ./gradlew assembleRelease --stacktrace
+      - name: Calcular SHA-256
+        shell: bash
+        run: |
+          cd "$RUNNER_TEMP/canalestv/app/build/outputs/apk/debug"
+          sha256sum *.apk > SHA256SUMS.txt
+      - name: Subir APK debug
+        uses: actions/upload-artifact@v4
+        with:
+          name: CanalesTV-debug
+          path: |
+            ${ runner.temp }}/canalestv/app/build/outputs/apk/debug/*.apk
+            ${ runner.temp }}/canalestv/app/build/outputs/apk/debug/SHA256SUMS.txt
+          if-no-files-found: error
+      - name: Subir reportes si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CanalesTV-reportes-build
+          path: |
+            ${ runner.temp }}/canalestv/app/build/reports/
+            ${ runner.temp }}/canalestv/app/build/outputs/logs/
+          if-no-files-found: ignore
