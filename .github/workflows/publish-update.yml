@@ -82,6 +82,8 @@ jobs:
           AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -1)"
           BADGING="$("$AAPT" dump badging "$RUNNER_TEMP/angulismotv-update.apk")"
           export BADGING
+          export EXPECTED_CODE="${{ steps.version.outputs.version_code }}"
+          export EXPECTED_NAME="${{ steps.version.outputs.version_name }}"
           python3 - "$GITHUB_OUTPUT" <<'PY'
           import os, re, sys
           match = re.search(r"^package: name='([^']+)' versionCode='([^']+)' versionName='([^']*)'", os.environ["BADGING"], re.M)
@@ -90,21 +92,21 @@ jobs:
           package, code, name = match.groups()
           if package != "com.angulismotv":
               raise SystemExit(f"El APK pertenece a {package}, no a com.angulismotv.")
+          if code != os.environ["EXPECTED_CODE"] or name != os.environ["EXPECTED_NAME"]:
+              raise SystemExit("La versión interna del APK no coincide con el ZIP fuente usado para compilar.")
           with open(sys.argv[1], "a", encoding="utf-8") as out:
               out.write(f"apk_version_code={code}\n")
               out.write(f"apk_version_name={name}\n")
           print(f"APK validado: {package} {name} ({code}).")
           PY
-          test "${ steps.apk.outputs.apk_version_code }}" = "${ steps.version.outputs.version_code }}" || { echo "::error::El versionCode del APK no coincide con las fuentes."; exit 1; }
-          test "${ steps.apk.outputs.apk_version_name }}" = "${ steps.version.outputs.version_name }}" || { echo "::error::El versionName del APK no coincide con las fuentes."; exit 1; }
           SHA256="$(sha256sum "$RUNNER_TEMP/angulismotv-update.apk" | awk '{print $1}')"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
       - name: Crear manifiesto y firmarlo con RSA-SHA256
         env:
-          UPDATE_PRIVATE_KEY_PEM: ${ secrets.UPDATE_PRIVATE_KEY_PEM }}
-          APK_SHA256: ${ steps.apk.outputs.sha256 }}
-          VERSION_CODE: ${ steps.version.outputs.version_code }}
-          VERSION_NAME: ${ steps.version.outputs.version_name }}
+          UPDATE_PRIVATE_KEY_PEM: ${{ secrets.UPDATE_PRIVATE_KEY_PEM }}
+          APK_SHA256: ${{ steps.apk.outputs.sha256 }}
+          VERSION_CODE: ${{ steps.version.outputs.version_code }}
+          VERSION_NAME: ${{ steps.version.outputs.version_name }}
         shell: bash
         run: |
           set -euo pipefail
@@ -151,6 +153,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add update.json update.json.sig
-          git commit -m "release: publish AngulismoTV update ${ steps.version.outputs.version_name }}"
+          git commit -m "release: publish AngulismoTV update ${{ steps.version.outputs.version_name }}"
           git push origin HEAD:main
           echo "Manifiesto firmado publicado en main."
