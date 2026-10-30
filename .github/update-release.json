@@ -1,0 +1,5 @@
+{
+  "apkUrl": "https://github.com/tadeoallende/repos-app/releases/download/angulismotv-signed-clean-40904365077/AngulismoTV-release-firmado.apk",
+  "releaseNotes": "Mejoras de estabilidad y compatibilidad de audio en transmisiones en vivo. Se incorpora decodificación por software como alternativa cuando el dispositivo no dispone de un decodificador compatible para MPEG Audio (MP1/MP2/MP3), además de correcciones de inicio.",
+  "forceUpdate": false
+}
