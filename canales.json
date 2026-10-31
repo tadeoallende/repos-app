@@ -1035,7 +1035,7 @@
       "options": [
         {
           "name": "Reproductor 1",
-          "iframe": "https://gatonet.site/api/proxy?url=https://teveplay.net/api/stream/0ae5c5de003787a8/index.m3u8",
+          "iframe": "http://190.128.214.97:64333/play/a03c/index.m3u8",
           "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
