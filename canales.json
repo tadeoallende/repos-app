@@ -953,6 +953,94 @@
         }
       ]
     },
+        {
+      "name": "ESPN 4",
+      "logo": "https://bestleague.pl/img/espn4.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://181.189.241.114:5050/play/a06l",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+           {
+      "name": "ESPN 5",
+      "logo": "https://bestleague.pl/img/espn5.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://barinaslive1.boldmss.com/ESPN_5/ESPN_5.isml/ESPN_5.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+                {
+      "name": "ESPN 6",
+      "logo": "https://bestleague.pl/img/espn6.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://181.189.241.114:5050/play/a0pq",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+            {
+      "name": "ESPN 7",
+      "logo": "https://bestleague.pl/img/espn7.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://181.189.241.114:5050/play/a0bw",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
        {
       "name": "LPF Play",
       "logo": "https://lpf.vod.immergo.tv/lpf-immergo/uploaded/9ac81436-28e2-4e50-9775-e69dc8192797.png",
