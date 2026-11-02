@@ -26,11 +26,20 @@ jobs:
       ORG_GRADLE_PROJECT_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
 
     steps:
+      # Historial completo: hace falta para saber cuál fue el último .zip que se subió.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Descomprimir proyecto
         run: |
-          ZIP="$(ls *.zip | head -1)"
+          # Toma el .zip de la raíz subido o modificado más recientemente en esta rama.
+          # Si no se puede determinar, usa el primero en orden alfabético (comportamiento anterior).
+          ZIP=""
+          while read -r f; do
+            if [ -f "$f" ]; then ZIP="$f"; break; fi
+          done < <(git log --name-only --diff-filter=AM --format= -- ':(glob)*.zip')
+          [ -n "$ZIP" ] || ZIP="$(ls *.zip | head -1)"
           echo "Usando: $ZIP"
           unzip -q -o "$ZIP" -d proyecto
           SETTINGS="$(find proyecto -name settings.gradle.kts | head -1)"
