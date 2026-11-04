@@ -14,5 +14,6 @@ jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
-      - name: Confirm workflow
-        run: echo "diagnostic workflow ran"
+      - uses: actions/checkout@v4
+      - name: Parse build YAML
+        run: ruby -e 'require "yaml"; YAML.parse_file(".github/workflows/build.yml"); puts "YAML OK"'
