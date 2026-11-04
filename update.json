@@ -1,8 +1,8 @@
 {
-  "versionCode": 5,
-  "versionName": "1.4",
-  "apkUrl": "https://github.com/tadeoallende/repos-app/releases/download/build-76/app-debug.apk",
-  "sha256": "bd353a77f9712426d5c2e0abf3dfe762b7070cfde2742c75bf6bc79beec381e1",
-  "releaseNotes": "Mejoras y correcciones.",
+  "versionCode": 10,
+  "versionName": "1.9",
+  "apkUrl": "https://github.com/tadeoallende/repos-app/releases/download/angulismotv-signed-clean-40904365077/AngulismoTV-release-firmado.apk",
+  "sha256": "d43f44b36dd78fd53487bff55d1704dda0aa8d526fbf768e3a8a5ec89758e04c",
+  "releaseNotes": "Mejoras de estabilidad y compatibilidad de audio en transmisiones en vivo. Se incorpora decodificación por software como alternativa cuando el dispositivo no dispone de un decodificador compatible para MPEG Audio (MP1/MP2/MP3), además de correcciones de inicio.",
   "forceUpdate": false
 }
