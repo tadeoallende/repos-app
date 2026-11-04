@@ -953,6 +953,94 @@
         }
       ]
     },
+        {
+      "name": "ESPN 4",
+      "logo": "https://bestleague.pl/img/espn4.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://181.189.241.114:5050/play/a06l",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+           {
+      "name": "ESPN 5",
+      "logo": "https://bestleague.pl/img/espn5.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://barinaslive1.boldmss.com/ESPN_5/ESPN_5.isml/ESPN_5.m3u8",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+                {
+      "name": "ESPN 6",
+      "logo": "https://bestleague.pl/img/espn6.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://181.189.241.114:5050/play/a0pq",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+            {
+      "name": "ESPN 7",
+      "logo": "https://bestleague.pl/img/espn7.webp",
+      "category": "deportes",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "hls",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "http://181.189.241.114:5050/play/a0bw",
+          "streamType": "hls",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
        {
       "name": "LPF Play",
       "logo": "https://lpf.vod.immergo.tv/lpf-immergo/uploaded/9ac81436-28e2-4e50-9775-e69dc8192797.png",
@@ -1035,7 +1123,7 @@
       "options": [
         {
           "name": "Reproductor 1",
-          "iframe": "https://gatonet.site/api/proxy?url=https://teveplay.net/api/stream/0ae5c5de003787a8/index.m3u8",
+          "iframe": "http://190.128.214.97:64333/play/a03c/index.m3u8",
           "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
@@ -1051,7 +1139,7 @@
         },
                 {
           "name": "Reproductor 3 (WebView, probablemente necesites un mouse)",
-          "iframe": "https://tvf90.com/5.php?stream=tntsports",
+          "iframe": "https://streamtp99a.sbs/global1.php?stream=tntsports",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
