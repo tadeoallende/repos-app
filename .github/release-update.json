@@ -1,6 +1,6 @@
 {
   "filename": "update.json",
   "apkUrl": "https://github.com/tadeoallende/repos-app/releases/download/build-330/app-release.apk",
-  "releaseNotes": "AngulismoTV 1.10 incorpora el perfil de reproducción Equilibrado, con mayor reserva de búfer para tolerar variaciones de red y mejorar la estabilidad de las transmisiones. Incluye ajustes de reproducción y correcciones de compilación.",
+  "releaseNotes": "AngulismoTV 1.10 incorpora el perfil de reproducción Equilibrado, con mayor reserva de búfer para tolerar variaciones de red y mejorar la estabilidad de las transmisiones. Incluye ajustes de reproducción y correcciones de compilación. Publicación del actualizador.",
   "forceUpdate": false
 }
