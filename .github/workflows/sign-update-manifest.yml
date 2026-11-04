@@ -2,6 +2,11 @@ name: Firmar manifiesto de actualización
 
 # Se ejecuta manualmente desde Actions. No modifica el workflow de compilación.
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/release-update.json'
   workflow_dispatch:
     inputs:
       filename:
@@ -25,7 +30,7 @@ on:
         default: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   sign-manifest:
@@ -34,6 +39,43 @@ jobs:
     steps:
       - name: Descargar archivos del repositorio
         uses: actions/checkout@v4
+
+      - name: Leer datos de publicación
+        id: publication
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_FILENAME: ${{ inputs.filename }}
+          INPUT_APK_URL: ${{ inputs.apk_url }}
+          INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
+          INPUT_FORCE_UPDATE: ${{ inputs.force_update }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          if os.environ["EVENT_NAME"] == "push":
+              data = json.loads(Path(".github/release-update.json").read_text(encoding="utf-8"))
+          else:
+              data = {
+                  "filename": os.environ.get("INPUT_FILENAME") or "update.json",
+                  "apkUrl": os.environ.get("INPUT_APK_URL") or "",
+                  "releaseNotes": os.environ.get("INPUT_RELEASE_NOTES") or "Mejoras y correcciones.",
+                  "forceUpdate": os.environ.get("INPUT_FORCE_UPDATE", "false").lower() == "true",
+              }
+          values = {
+              "filename": str(data.get("filename", "update.json")),
+              "apk_url": str(data.get("apkUrl", "")),
+              "release_notes": str(data.get("releaseNotes", "Mejoras y correcciones.")).replace("\n", " "),
+              "force_update": str(data.get("forceUpdate", False)).lower(),
+          }
+          if not values["apk_url"].startswith("https://"):
+              raise SystemExit("La URL de descarga debe ser HTTPS.")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              for key, value in values.items():
+                  output.write(f"{key}={value}\n")
+          print("Datos de publicación preparados.")
+          PY
 
       - name: Encontrar el proyecto dentro del ZIP y leer versión
         id: project
@@ -76,7 +118,7 @@ jobs:
       - name: Descargar APK publicado y calcular SHA-256
         id: apk
         env:
-          APK_URL: ${{ inputs.apk_url }}
+          APK_URL: ${{ steps.publication.outputs.apk_url }}
         shell: bash
         run: |
           set -euo pipefail
@@ -93,13 +135,13 @@ jobs:
 
       - name: Crear manifiesto
         env:
-          OUTPUT_FILENAME: ${{ inputs.filename }}
+          OUTPUT_FILENAME: ${{ steps.publication.outputs.filename }}
           VERSION_CODE: ${{ steps.project.outputs.version_code }}
           VERSION_NAME: ${{ steps.project.outputs.version_name }}
           APK_URL: ${{ inputs.apk_url }}
           APK_SHA256: ${{ steps.apk.outputs.sha256 }}
-          RELEASE_NOTES: ${{ inputs.release_notes }}
-          FORCE_UPDATE: ${{ inputs.force_update }}
+          RELEASE_NOTES: ${{ steps.publication.outputs.release_notes }}
+          FORCE_UPDATE: ${{ steps.publication.outputs.force_update }}
         shell: bash
         run: |
           set -euo pipefail
@@ -176,3 +218,19 @@ jobs:
           path: signed-update/
           if-no-files-found: error
           retention-days: 7
+
+      - name: Publicar manifiesto firmado en main
+        if: ${{ github.event_name == 'push' }}
+        env:
+          OUTPUT_FILENAME: ${{ steps.publication.outputs.filename }}
+        run: |
+          set -euo pipefail
+          test "$OUTPUT_FILENAME" = "update.json"
+          cp "signed-update/$OUTPUT_FILENAME" update.json
+          cp "signed-update/$OUTPUT_FILENAME.sig" update.json.sig
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add update.json update.json.sig
+          git commit -m "release: publish signed AngulismoTV update manifest [skip ci]"
+          git push origin "HEAD:$GITHUB_REF_NAME"
+
