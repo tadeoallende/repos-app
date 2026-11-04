@@ -89,6 +89,65 @@ jobs:
               raise SystemExit("No se encontró una declaración compatible de resetAutoHideTimer; se detiene el build.")
           PY
 
+      - name: Aplicar perfil de búfer Equilibrado de ExoPlayer
+        working-directory: ${{ env.PROJECT_DIR }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          root = Path("app/src/main/java/com/angulismotv")
+          root.mkdir(parents=True, exist_ok=True)
+          config = root / "PlaybackBufferConfig.kt"
+          config.write_text("""package com.angulismotv
+
+          import com.google.android.exoplayer2.DefaultLoadControl
+
+          /**
+           * Perfil Equilibrado: aumenta la reserva para tolerar variaciones de red
+           * sin imponer una espera excesiva al iniciar o cambiar de canal.
+           */
+          internal object PlaybackBufferConfig {
+              fun createBalancedLoadControl(): DefaultLoadControl =
+                  DefaultLoadControl.Builder()
+                      .setBufferDurationsMs(
+                          30_000,
+                          60_000,
+                          2_500,
+                          7_500
+                      )
+                      .setPrioritizeTimeOverSizeThresholds(true)
+                      .build()
+          }
+          """, encoding="utf-8")
+
+          sources = list(Path("app/src/main").rglob("*.kt"))
+          matches = []
+          for path in sources:
+              text = path.read_text(encoding="utf-8")
+              for match in re.finditer(r"ExoPlayer\\.Builder\\(([^()]*)\\)", text):
+                  matches.append((path, match.start(), match.group(0)))
+
+          if len(matches) != 1:
+              details = ", ".join(f"{p}:{snippet}" for p, _, snippet in matches)
+              raise SystemExit(
+                  f"Se esperaba una única creación de ExoPlayer compartido; "
+                  f"se encontraron {len(matches)}. {details}"
+              )
+
+          path, _, expression = matches[0]
+          source = path.read_text(encoding="utf-8")
+          if "setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())" in source:
+              print("El perfil Equilibrado ya estaba aplicado.")
+          else:
+              replacement = expression + "\\n            .setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())"
+              source = source.replace(expression, replacement, 1)
+              path.write_text(source, encoding="utf-8")
+              print(f"Perfil Equilibrado conectado al reproductor: {path}")
+
+          print("Configuración aplicada: 30s/60s/2.5s/7.5s; priorización por duración.")
+          PY
+
       - name: Preservar TypeToken de Gson al minificar release
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
