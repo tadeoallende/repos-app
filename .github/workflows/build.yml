@@ -72,14 +72,21 @@ jobs:
           old = "    private fun resetAutoHideTimer() = controlsVisibility.resetAutoHide()"
           new = "    private fun resetAutoHideTimer(): Unit {\n        controlsVisibility.resetAutoHide()\n    }"
 
+          block_signature = "    private fun resetAutoHideTimer() {"
+          explicit_block_signature = "    private fun resetAutoHideTimer(): Unit {"
+
           if old in text:
               text = text.replace(old, new, 1)
               source.write_text(text, encoding="utf-8")
-              print("Corrección aplicada: tipo de retorno explícito para resetAutoHideTimer().")
+              print("Corrección aplicada desde la forma expression-body.")
           elif new in text:
-              print("La corrección ya está presente.")
+              print("La corrección ya está presente con retorno Unit explícito.")
+          elif block_signature in text:
+              text = text.replace(block_signature, explicit_block_signature, 1)
+              source.write_text(text, encoding="utf-8")
+              print("Corrección aplicada al bloque existente: retorno Unit explícito.")
           else:
-              raise SystemExit("No se encontró la declaración esperada de resetAutoHideTimer; se detiene el build.")
+              raise SystemExit("No se encontró una declaración compatible de resetAutoHideTimer; se detiene el build.")
           PY
 
       - name: Preservar TypeToken de Gson al minificar release
