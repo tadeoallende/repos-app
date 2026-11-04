@@ -100,8 +100,8 @@ jobs:
           builders = []
           for path in sources:
               source = path.read_text(encoding="utf-8")
-              package = re.search(r"^package\\s+([\\w.]+)", source, re.M)
-              for match in re.finditer(r"ExoPlayer\\.Builder\\(([^()]*)\\)", source):
+              package = re.search(r"^package\s+([\w.]+)", source, re.M)
+              for match in re.finditer(r"ExoPlayer\.Builder\(([^()]*)\)", source):
                   builders.append((path, package.group(1) if package else "", match.group(0)))
 
           if len(builders) != 1:
@@ -129,7 +129,7 @@ jobs:
           if "setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())" not in source:
               source = source.replace(
                   expression,
-                  expression + "\\n            .setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())",
+                  expression + "\n            .setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())",
                   1
               )
               path.write_text(source, encoding="utf-8")
