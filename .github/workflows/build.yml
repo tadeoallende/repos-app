@@ -49,8 +49,17 @@ jobs:
       - name: Establecer versión de publicación 1.10
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
-          python3 -c 'from pathlib import Path; p=Path("app/build.gradle.kts"); s=p.read_text(); lines=s.splitlines(); codes=[x for x in lines if x.strip().startswith("versionCode =")]; names=[x for x in lines if x.strip().startswith("versionName =")]; assert len(codes)==1 and len(names)==1, "No se encontró un único versionCode/versionName"; assert int(codes[0].split("=")[1].strip()) <= 11, "La versión de origen supera versionCode 11"; lines=[(x[:len(x)-len(x.lstrip())]+"versionCode = 11" if x.strip().startswith("versionCode =") else x[:len(x)-len(x.lstrip())]+"versionName = \\"1.10\\"" if x.strip().startswith("versionName =") else x) for x in lines]; p.write_text("\\n".join(lines)+"\\n"); print("VersionCode 11 / versionName 1.10 preparados")'
-
+          FILE="app/build.gradle.kts"
+          test -f "$FILE"
+          test "$(grep -cE '^[[:space:]]*versionCode[[:space:]]*=' "$FILE")" -eq 1
+          test "$(grep -cE '^[[:space:]]*versionName[[:space:]]*=' "$FILE")" -eq 1
+          CURRENT="$(grep -E '^[[:space:]]*versionCode[[:space:]]*=' "$FILE" | sed -E 's/.*=[[:space:]]*([0-9]+).*/\\1/')"
+          test "$CURRENT" -le 11
+          sed -i -E 's/^([[:space:]]*versionCode[[:space:]]*=[[:space:]]*)[0-9]+$/\\1 11/' "$FILE"
+          sed -i -E 's/^([[:space:]]*versionName[[:space:]]*=[[:space:]]*)".*"$/\\1"1.10"/' "$FILE"
+          grep -qE '^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*11$' "$FILE"
+          grep -qE '^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"1.10"$' "$FILE"
+          echo "Versión de publicación fijada en 1.10 (code 11)."
 
       - uses: actions/setup-java@v4
         with:
