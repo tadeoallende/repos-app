@@ -53,10 +53,10 @@ jobs:
           test -f "$FILE"
           test "$(grep -cE '^[[:space:]]*versionCode[[:space:]]*=' "$FILE")" -eq 1
           test "$(grep -cE '^[[:space:]]*versionName[[:space:]]*=' "$FILE")" -eq 1
-          CURRENT="$(grep -E '^[[:space:]]*versionCode[[:space:]]*=' "$FILE" | sed -E 's/.*=[[:space:]]*([0-9]+).*/\\1/')"
+          CURRENT="$(grep -E '^[[:space:]]*versionCode[[:space:]]*=' "$FILE" | sed -E 's/.*=[[:space:]]*([0-9]+).*/\1/')"
           test "$CURRENT" -le 11
-          sed -i -E 's/^([[:space:]]*versionCode[[:space:]]*=[[:space:]]*)[0-9]+$/\\1 11/' "$FILE"
-          sed -i -E 's/^([[:space:]]*versionName[[:space:]]*=[[:space:]]*)".*"$/\\1"1.10"/' "$FILE"
+          sed -i -E 's/^([[:space:]]*versionCode[[:space:]]*=[[:space:]]*)[0-9]+$/\1 11/' "$FILE"
+          sed -i -E 's/^([[:space:]]*versionName[[:space:]]*=[[:space:]]*)".*"$/\1"1.10"/' "$FILE"
           grep -qE '^[[:space:]]*versionCode[[:space:]]*=[[:space:]]*11$' "$FILE"
           grep -qE '^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"1.10"$' "$FILE"
           echo "Versión de publicación fijada en 1.10 (code 11)."
