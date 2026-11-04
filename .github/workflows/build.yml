@@ -125,7 +125,7 @@ jobs:
           matches = []
           for path in sources:
               text = path.read_text(encoding="utf-8")
-              for match in re.finditer(r"ExoPlayer\\.Builder\\(([^()]*)\\)", text):
+              for match in re.finditer(r"ExoPlayer\.Builder\(([^()]*)\)", text):
                   matches.append((path, match.start(), match.group(0)))
 
           if len(matches) != 1:
@@ -140,7 +140,7 @@ jobs:
           if "setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())" in source:
               print("El perfil Equilibrado ya estaba aplicado.")
           else:
-              replacement = expression + "\\n            .setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())"
+              replacement = expression + "\n            .setLoadControl(PlaybackBufferConfig.createBalancedLoadControl())"
               source = source.replace(expression, replacement, 1)
               path.write_text(source, encoding="utf-8")
               print(f"Perfil Equilibrado conectado al reproductor: {path}")
