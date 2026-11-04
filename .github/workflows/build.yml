@@ -56,8 +56,19 @@ jobs:
 
           path = Path("app/build.gradle.kts")
           content = path.read_text(encoding="utf-8")
-          codes = re.findall(r"(?m)^\\s*versionCode\\s*=\\s*(\\d+)\\s*$", content)
-          names = re.findall(r'(?m)^\\s*versionName\\s*=\\s*"([^"\\n]+)"\\s*
+          codes = re.findall(r"(?m)^ *versionCode *= *([0-9]+) *$", content)
+          names = re.findall(r'(?m)^ *versionName *= *"([^"]+)" *$', content)
+          if len(codes) != 1 or len(names) != 1:
+              raise SystemExit(f"Se esperaba un solo versionCode/versionName en {path}; encontrados {len(codes)}/{len(names)}")
+          current = int(codes[0])
+          if current > 11:
+              raise SystemExit(f"El código actual ({current}) supera el versionCode de publicación 11; se cancela para evitar un downgrade.")
+          content = re.sub(r"(?m)^( *versionCode *= *)[0-9]+( *)$", r"\g<1>11\g<2>", content, count=1)
+          content = re.sub(r'(?m)^( *versionName *= *")[^"]+(" *)$', r"\g<1>1.10\g<2>", content, count=1)
+          path.write_text(content, encoding="utf-8")
+          print(f"Versión fijada: versionCode 11, versionName 1.10 (anterior: {current}/{names[0]}).")
+          PY
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
