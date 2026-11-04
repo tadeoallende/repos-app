@@ -183,7 +183,7 @@ jobs:
         env:
           UPDATE_PRIVATE_KEY_PEM: ${{ secrets.UPDATE_PRIVATE_KEY_PEM }}
           PUBLIC_KEY_PATH: ${{ steps.project.outputs.public_key }}
-          OUTPUT_FILENAME: ${{ inputs.filename }}
+          OUTPUT_FILENAME: ${{ steps.publication.outputs.filename }}
         shell: bash
         run: |
           set -euo pipefail
