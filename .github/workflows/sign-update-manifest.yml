@@ -138,7 +138,7 @@ jobs:
           OUTPUT_FILENAME: ${{ steps.publication.outputs.filename }}
           VERSION_CODE: ${{ steps.project.outputs.version_code }}
           VERSION_NAME: ${{ steps.project.outputs.version_name }}
-          APK_URL: ${{ inputs.apk_url }}
+          APK_URL: ${{ steps.publication.outputs.apk_url }}
           APK_SHA256: ${{ steps.apk.outputs.sha256 }}
           RELEASE_NOTES: ${{ steps.publication.outputs.release_notes }}
           FORCE_UPDATE: ${{ steps.publication.outputs.force_update }}
