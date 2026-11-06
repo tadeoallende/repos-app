@@ -46,6 +46,21 @@ jobs:
           echo "PROJECT_DIR=$(dirname "$SETTINGS")" >> "$GITHUB_ENV"
           echo "SOURCE_ZIP=$ZIP" >> "$GITHUB_ENV"
 
+      - name: Aplicar parche WebView etapa 40
+        run: |
+          set -euo pipefail
+          test -n "$PROJECT_DIR"
+          python3 - <<'PY'
+          import base64
+          import zlib
+          from pathlib import Path
+
+          encoded = Path(".github/overlays/etapa40.patch.zb64").read_text(encoding="ascii").strip()
+          patch_data = zlib.decompress(base64.b64decode(encoded, validate=True))
+          Path("/tmp/angulismotv-etapa40.patch").write_bytes(patch_data)
+          PY
+          patch --batch --forward --fuzz=3 -p0 -d "$PROJECT_DIR" < /tmp/angulismotv-etapa40.patch
+
       - name: Establecer versión de publicación 1.10
         working-directory: ${{ env.PROJECT_DIR }}
         run: |
