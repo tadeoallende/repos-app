@@ -791,7 +791,7 @@
         },
         {
           "name": "Reproductor 3 (WebView)",
-          "iframe": "https://la14hd.com/vivo/canales.php?stream=tycsports",
+          "iframe": "https://la18hd.su/vivo/canales.php?stream=tycsports",
           "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
@@ -1093,7 +1093,7 @@
         },
         {
           "name": "Reproductor 2",
-          "iframe": "https://gatonet.site/api/proxy?url=https://teveplay.net/api/stream/0ae5c5de003787a8/index.m3u8",
+          "iframe": "https://barinaslive1.boldmss.com/ESPN/ESPN.isml/ESPN.m3u8",
           "streamType": "hls",
           "headers": null,
           "drmKeyId": null,
@@ -1129,16 +1129,9 @@
           "drmKeyId": null,
           "drmKey": null
         },
+
         {
-          "name": "Reproductor 2 ",
-          "iframe": "http://190.128.214.97:64333/play/a03c/index.m3u8",
-          "streamType": "hls",
-          "headers": null,
-          "drmKeyId": null,
-          "drmKey": null
-        },
-                {
-          "name": "Reproductor 3 (WebView, probablemente necesites un mouse)",
+          "name": "Reproductor 2 (WebView)",
           "iframe": "https://streamtp99a.sbs/global1.php?stream=tntsports",
           "streamType": "iframe",
           "headers": null,
