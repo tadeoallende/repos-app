@@ -2064,7 +2064,15 @@
         {
           "name": "Reproductor 1",
           "iframe": "https://ok.ru/videoembed/16900436003424",
-          "streamType": "hls",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        },
+{
+          "name": "Reproductor 2",
+          "iframe": "https://ok.ru/videoembed/16900436003424",
+          "streamType": "iframe",
           "headers": null,
           "drmKeyId": null,
           "drmKey": null
