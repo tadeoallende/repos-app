@@ -2253,6 +2253,418 @@
         }
       ]
     },
+        {
+      "name": "La leyenda de Shen Long (Dragon Ball Z: Ora no Gohan wo Kaese!!)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "El hombre más fuerte de este mundo (Konoyo de Ichiban Tsuyoi Yatsu)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/wflzvrswyq54",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "La super batalla decisiva por el planeta Tierra (Chikyū Marugoto Chōkessen)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/4uhur5w31b9i",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "Super Saiyajin Son Goku (Super Saiyajin da Son Gokū)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "Los rivales más poderosos (Tobikkiri no Saikyō tai Saikyō)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/1ybl2mlhjxc0",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "Los androides del futuro: Gohan y Trunks (Gekitotsu!! 100-oku Pawā no Senshi-tachi)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "El regreso del legendario Super Saiyajin (Kyokugen Battle!! San Dai Super Saiyajin)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/zbv12oaz0vps",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "El poder invencible (Moetsukiro!! Nessen Ressen Chōgekisen)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/oet81bwnf99j",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "La galaxia al borde del colapso (Ginga Giri-Giri!! Butchigiri no Sugoi Yatsu)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/pf4crsp4km7q",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "El duelo de los dos mundos (Kiken na Futari! Super Senshi wa Nemurenai)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/2b9w35c5blgw",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "La fusión de Goku y Vegeta (Doragon Bōru Zetto: Sūpā Senshi Gekiha!! Katsu no wa Ore da)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "El regreso de Broly (Ryū-Ken Bakuhatsu!! Gāru ga Dekinai)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "La batalla de los dioses (Kami to Kami)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "La resurrección de F (Fukkatsu no F)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/yv5kp5sudf6w",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "Broly (Doragon Bōru Sūpā: Buroly)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "Super Hero (Doragon Bōru Sūpā: Sūpā Hīrō)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": []
+    },
+    {
+      "name": "El Padre De Goku",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://ok.ru/videoembed/2328806623895",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "¡Devuélvanme a mi Gohan! (Ora no Gohan wo Kaese!!)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/4qh3m45pzmfb",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "La Princesa Durmiente del Castillo Embrujado (Dragon Ball)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/mie964bvtt5k",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "Una Aventura Mística (Dragon Ball: Mystical Adventure)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/8z9kkap2o41c",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "La Batalla de Freezer contra el Padre de Goku (Bardock: Tatta Hitori no Saishū Kessen)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/5d8kugyetxsx",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
+    {
+      "name": "Dragon Ball GT: La Legendaria Esfera de Cuatro Estrellas (Gokū Gaiden!)",
+      "logo": "https://angulismotv.pages.dev/assets/logos/equipos/dragon-ball.png",
+      "category": "peliculas",
+      "show": true,
+      "streamUrl": null,
+      "streamType": "iframe",
+      "headers": null,
+      "drmKeyId": null,
+      "drmKey": null,
+      "sources": [],
+      "options": [
+        {
+          "name": "Reproductor 1",
+          "iframe": "https://streamwish.to/e/xfdkj9n05ggz",
+          "streamType": "iframe",
+          "headers": null,
+          "drmKeyId": null,
+          "drmKey": null
+        }
+      ]
+    },
     {
       "name": "Toy Story 5",
       "logo": "",
